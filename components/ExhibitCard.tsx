@@ -4,7 +4,7 @@ import { getOptimizedImageUrl } from '../services/api';
 
 interface ExhibitCardProps {
   exhibit: ExhibitItem;
-  onClick: (exhibit: ExhibitItem) => void;
+  onClick: (exhibit: ExhibitItem, initialIndex?: number) => void;
   index: number;
 }
 
@@ -64,9 +64,14 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, index }) =>
   const bgColor = palette?.dominant?.background || '#151520';
   const txtColor = palette?.dominant?.foreground || '#ffffff';
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    onClick(exhibit, 0);
+  };
+
   return (
     <div 
-      onClick={() => onClick(exhibit)}
+      onClick={handleCardClick}
       className="rounded-2xl p-6 cursor-pointer active:scale-[0.99] transition-all duration-500 border border-white/5 shadow-xl hover:shadow-2xl group"
       style={{ 
         backgroundColor: bgColor,
@@ -96,11 +101,30 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, index }) =>
           const asset = img.asset;
           const url = asset ? getOptimizedImageUrl(asset.url, 400) : null;
           
+          // Find the index of this image in the main gallery items list for deep linking
+          const galleryIndex = exhibit.gallery?.galleryItems?.findIndex(
+            (gi) => gi.image?.asset?.assetId === asset?.assetId
+          );
+          
+          // If found in gallery, use that index. Otherwise default to 0.
+          const targetIndex = (galleryIndex !== undefined && galleryIndex > -1) ? galleryIndex : 0;
+
           if (!url) {
             return <div key={i} className="aspect-[41/50] bg-white/5" />;
           }
 
-          return <CardImage key={i} src={url} />;
+          return (
+            <div 
+              key={i} 
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent card click
+                onClick(exhibit, targetIndex);
+              }}
+              className="hover:opacity-80 transition-opacity"
+            >
+              <CardImage src={url} />
+            </div>
+          );
         })}
       </div>
     </div>

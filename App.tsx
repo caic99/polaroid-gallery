@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { fetchExhibits, getOptimizedImageUrl } from './services/api';
 import { ExhibitItem, GalleryItem } from './types';
 import ExhibitCard from './components/ExhibitCard';
@@ -34,27 +34,29 @@ const GallerySlide = ({ item, onClick }: { item: GalleryItem, onClick: (item: Ga
   
   if (!asset) return null;
   const highResUrl = getOptimizedImageUrl(asset.url, 1200);
-  const lowResUrl = getOptimizedImageUrl(asset.url, 400); // Use the same size as grid view for cache hit
   const dims = asset.metadata?.dimensions;
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center gap-4 animate-in fade-in zoom-in-95 duration-500">
+    <div className="w-full h-full flex flex-col items-center justify-center gap-4">
       {/* 
         Image Container 
-        Use grid to stack. The 'relative' image drives the size. 
-        The 'absolute' image fills the size.
       */}
       <div className="relative grid place-items-center">
-         {/* Low Res Thumbnail (Background) - Always visible to prevent flash/dip during transition */}
-         <img 
-             src={lowResUrl}
-             alt=""
-             className="absolute inset-0 w-full h-full object-contain"
-             draggable="false"
-             aria-hidden="true"
-         />
          
-         {/* High Res Image (Foreground) - Relative, defines the layout size via width/height attributes */}
+         {/* 41:50 White Placeholder - Visible while loading */}
+         {!loaded && (
+           <div 
+             className="absolute z-0 bg-white shadow-2xl"
+             style={{ 
+               aspectRatio: '41/50', 
+               height: 'min(60vh, 800px)',
+               width: 'auto',
+               maxHeight: '70vh'
+             }}
+           />
+         )}
+
+         {/* High Res Image (Foreground) */}
          <img 
              src={highResUrl}
              alt={item.title || "Gallery Item"}
@@ -89,6 +91,35 @@ const App: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
+  const isInternalNavigation = useRef(false);
+
+  // Sync state from URL parameters
+  const syncStateFromUrl = useCallback((items: ExhibitItem[]) => {
+    const params = new URLSearchParams(window.location.search);
+    const exhibitId = params.get('exhibit');
+    const slideIndex = params.get('slide');
+
+    if (exhibitId) {
+      const foundExhibit = items.find(e => e.identifier === exhibitId);
+      if (foundExhibit) {
+        setSelectedExhibit(foundExhibit);
+        if (slideIndex) {
+          const idx = parseInt(slideIndex, 10);
+          if (!isNaN(idx) && idx >= 0) {
+            setCurrentIndex(idx);
+            // We need to wait for render to scroll, handled in useEffect
+          } else {
+            setCurrentIndex(0);
+          }
+        } else {
+          setCurrentIndex(0);
+        }
+      }
+    } else {
+      setSelectedExhibit(null);
+      setCurrentIndex(0);
+    }
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -97,6 +128,8 @@ const App: React.FC = () => {
       try {
         const data = await fetchExhibits();
         setExhibits(data);
+        // Check URL for deep linking after data load
+        syncStateFromUrl(data);
       } catch (err) {
         setError("Unable to retrieve gallery data.");
       } finally {
@@ -104,17 +137,71 @@ const App: React.FC = () => {
       }
     };
     loadData();
-  }, []);
 
-  const handleExhibitClick = (exhibit: ExhibitItem) => {
+    const handlePopState = () => {
+      // Re-sync when browser back/forward is pressed
+      // We need the exhibits data which we might not have access to in this closure easily 
+      // if we don't use a ref or dependency. 
+      // Ideally, we'd trigger a re-sync. 
+      // Since exhibits state is stable after load, we can depend on it?
+      // Actually, React state in event listener might be stale.
+      // Use URLSearchParams directly in a way that depends on `exhibits`.
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []); // Run once on mount
+
+  // Effect to handle PopState with fresh data
+  useEffect(() => {
+    const handlePopState = () => {
+      if (exhibits.length > 0) {
+        syncStateFromUrl(exhibits);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [exhibits, syncStateFromUrl]);
+
+  // Effect to scroll to currentIndex when exhibit opens or index changes
+  useEffect(() => {
+    if (selectedExhibit && scrollContainerRef.current) {
+      const width = scrollContainerRef.current.clientWidth;
+      scrollContainerRef.current.scrollTo({
+        left: width * currentIndex,
+        behavior: 'instant' // Instant for initial load, user interaction handles smooth
+      });
+    }
+  }, [selectedExhibit]); // Only on exhibit change/open. Scroll handle manages its own updates.
+
+  const handleExhibitClick = (exhibit: ExhibitItem, initialIndex: number = 0) => {
     setSelectedExhibit(exhibit);
-    setCurrentIndex(0);
+    setCurrentIndex(initialIndex);
+    
+    // Push state for entering the exhibit
+    const url = new URL(window.location.href);
+    url.searchParams.set('exhibit', exhibit.identifier);
+    url.searchParams.set('slide', initialIndex.toString());
+    window.history.pushState({}, '', url.toString());
+
     window.scrollTo({ top: 0, behavior: 'instant' });
+    
+    // Force scroll after render
+    setTimeout(() => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({
+                left: scrollContainerRef.current.clientWidth * initialIndex,
+                behavior: 'instant'
+            });
+        }
+    }, 0);
   };
 
   const handleBack = () => {
     setSelectedExhibit(null);
     setCurrentIndex(0);
+    // Push state for returning home
+    window.history.pushState({}, '', window.location.pathname);
   };
 
   // Pre-calculate colors for the current gallery
@@ -135,6 +222,14 @@ const App: React.FC = () => {
       const index = Math.round(scrollLeft / clientWidth);
       if (index !== currentIndex) {
         setCurrentIndex(index);
+        
+        // Update URL quietly (replaceState) when scrolling to avoid polluting history
+        if (selectedExhibit) {
+           const url = new URL(window.location.href);
+           url.searchParams.set('exhibit', selectedExhibit.identifier);
+           url.searchParams.set('slide', index.toString());
+           window.history.replaceState({}, '', url.toString());
+        }
       }
 
       // Continuous Linear Color Interpolation
@@ -245,7 +340,7 @@ const App: React.FC = () => {
       if (metaThemeColor) metaThemeColor.setAttribute('content', appBgColor);
     } else {
       // Entering Detail: Set initial color immediately
-      const initialColor = galleryColors[0];
+      const initialColor = galleryColors[currentIndex] || galleryColors[0];
       if (initialColor) {
         if (mainRef.current) {
           mainRef.current.style.backgroundColor = initialColor;
@@ -358,7 +453,7 @@ const App: React.FC = () => {
               </div>
             ) : (
               // HOME VIEW: Vertical Stack
-              <div className="container mx-auto px-4 pt-12 pb-8 md:pt-20 md:pb-12 animate-in fade-in duration-300">
+              <div className="container mx-auto px-4 pt-12 pb-8 md:pt-20 md:pb-12">
                 <div className="max-w-7xl mx-auto">
                   {/* Immersive Header */}
                   <div className="mb-10 md:mb-14">
