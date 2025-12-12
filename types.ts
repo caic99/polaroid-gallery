@@ -16,9 +16,16 @@ export interface SanityPalette {
   lightVibrant?: SanityPaletteSwatch;
 }
 
+export interface SanityDimensions {
+  width: number;
+  height: number;
+  aspectRatio: number;
+}
+
 export interface SanityMetadata {
   blurHash?: string;
   palette?: SanityPalette;
+  dimensions?: SanityDimensions;
 }
 
 export interface SanityAsset {

@@ -26,7 +26,7 @@ export const fetchExhibits = async (): Promise<ExhibitItem[]> => {
           path,
           url,
           assetId,
-          metadata{blurHash,palette}
+          metadata{blurHash,palette,dimensions}
         }
       },
       gallery{
@@ -39,7 +39,7 @@ export const fetchExhibits = async (): Promise<ExhibitItem[]> => {
               path,
               url,
               assetId,
-              metadata{blurHash,palette}
+              metadata{blurHash,palette,dimensions}
             }
           }
         }

@@ -11,22 +11,35 @@ const GallerySlide = ({ item, onClick }: { item: GalleryItem, onClick: (item: Ga
   const asset = item.image?.asset;
   
   if (!asset) return null;
-  const imageUrl = getOptimizedImageUrl(asset.url, 1200);
+  const highResUrl = getOptimizedImageUrl(asset.url, 1200);
+  const lowResUrl = getOptimizedImageUrl(asset.url, 400); // Use the same size as grid view for cache hit
+  const dims = asset.metadata?.dimensions;
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center gap-4 animate-in fade-in zoom-in-95 duration-500">
-      {/* Image Container with Placeholder */}
-      <div className="relative flex items-center justify-center">
-         {/* 41:50 White Placeholder - Visible only when loading */}
-         {!loaded && (
-             <div className="w-[70vw] md:h-[60vh] aspect-[41/50] bg-white shadow-2xl animate-pulse" />
-         )}
-         
+      {/* 
+        Image Container 
+        Use grid to stack. The 'relative' image drives the size. 
+        The 'absolute' image fills the size.
+      */}
+      <div className="relative grid place-items-center">
+         {/* Low Res Thumbnail (Background) - Always visible to prevent flash/dip during transition */}
          <img 
-             src={imageUrl}
+             src={lowResUrl}
+             alt=""
+             className="absolute inset-0 w-full h-full object-contain"
+             draggable="false"
+             aria-hidden="true"
+         />
+         
+         {/* High Res Image (Foreground) - Relative, defines the layout size via width/height attributes */}
+         <img 
+             src={highResUrl}
              alt={item.title || "Gallery Item"}
+             width={dims?.width}
+             height={dims?.height}
              onClick={() => onClick(item)}
-             className={`max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl cursor-zoom-in transition-opacity duration-700 ${loaded ? 'opacity-100' : 'opacity-0 absolute'}`}
+             className={`relative z-10 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl cursor-zoom-in transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
              loading="lazy"
              draggable="false"
              onLoad={() => setLoaded(true)}
@@ -34,8 +47,8 @@ const GallerySlide = ({ item, onClick }: { item: GalleryItem, onClick: (item: Ga
       </div>
 
       {/* Meta Info Row */}
-      <div className="flex items-center justify-center mt-2" style={{ color: 'inherit' }}>
-          <span className="font-medium text-lg tracking-wide drop-shadow-md opacity-90">
+      <div className="flex items-center justify-center mt-2 px-4 text-center" style={{ color: 'inherit' }}>
+          <span className="font-medium text-lg tracking-wide drop-shadow-md opacity-90 line-clamp-2">
               {item.title || "Untitled"}
           </span>
       </div>
@@ -117,22 +130,67 @@ const App: React.FC = () => {
   // Filter valid items for the gallery view
   const galleryItems = selectedExhibit?.gallery?.galleryItems?.filter(i => i.image?.asset) || [];
 
-  // Determine Dynamic Colors based on the CURRENT SLIDE (Individual Photo)
-  // We prioritize the palette of the currently visible image.
-  const currentItem = galleryItems[currentIndex];
-  const currentPalette = currentItem?.image?.asset?.metadata?.palette;
+  // Keyboard Navigation
+  useEffect(() => {
+    // Only active if we are in detail view and lightbox is not open
+    if (!selectedExhibit || selectedImage) return;
 
-  // Fallback to exhibit cover if specific photo palette is missing
-  const coverAsset = selectedExhibit?.coverImages?.[0]?.asset;
-  const fallbackPalette = coverAsset?.metadata?.palette;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        prevSlide();
+      } else if (e.key === 'ArrowRight') {
+        nextSlide();
+      }
+    };
 
-  const displayPalette = currentPalette || fallbackPalette;
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedExhibit, selectedImage, currentIndex]);
+
+  // ---------------------------------------------------------------------------
+  // DYNAMIC COLOR LOGIC (Immersive)
+  // ---------------------------------------------------------------------------
   
-  const dynamicBgColor = displayPalette?.dominant?.background || '#2c2435';
-  const dynamicTextColor = displayPalette?.dominant?.foreground || '#ffffff';
+  let appBgColor = '#0e0e1a'; // Default Home Background
+  let appTextColor = '#f4f4f5'; // Default Home Text (zinc-100)
+
+  if (selectedExhibit) {
+    // Determine Dynamic Colors based on the CURRENT SLIDE (Individual Photo)
+    // We prioritize the palette of the currently visible image.
+    const currentItem = galleryItems[currentIndex];
+    const currentPalette = currentItem?.image?.asset?.metadata?.palette;
+
+    // Fallback to exhibit cover if specific photo palette is missing
+    const coverAsset = selectedExhibit?.coverImages?.[0]?.asset;
+    const fallbackPalette = coverAsset?.metadata?.palette;
+
+    const displayPalette = currentPalette || fallbackPalette;
+    
+    appBgColor = displayPalette?.dominant?.background || '#2c2435';
+    appTextColor = displayPalette?.dominant?.foreground || '#ffffff';
+  }
+
+  // Sync Body Background & Meta Theme Color for mobile browsers
+  useEffect(() => {
+    // 1. Update Body Background (covers overscroll areas)
+    document.body.style.backgroundColor = appBgColor;
+    
+    // 2. Update Meta Theme Color (covers status bars on iOS/Android)
+    let metaThemeColor = document.querySelector("meta[name='theme-color']");
+    if (!metaThemeColor) {
+        metaThemeColor = document.createElement('meta');
+        metaThemeColor.setAttribute('name', 'theme-color');
+        document.head.appendChild(metaThemeColor);
+    }
+    metaThemeColor.setAttribute('content', appBgColor);
+
+  }, [appBgColor]);
 
   return (
-    <div className="min-h-screen bg-[#0e0e1a] flex flex-col font-sans text-zinc-100 transition-colors duration-500">
+    <div 
+      className="min-h-screen flex flex-col font-sans transition-colors duration-700 ease-in-out"
+      style={{ backgroundColor: appBgColor, color: appTextColor }}
+    >
       
       {/* Main Content Area */}
       <main className="flex-grow flex flex-col overflow-hidden relative">
@@ -155,10 +213,7 @@ const App: React.FC = () => {
           <>
             {selectedExhibit ? (
               // DETAIL VIEW: Horizontal Gallery
-              <div 
-                className="flex-1 relative flex flex-col transition-colors duration-700 ease-in-out"
-                style={{ backgroundColor: dynamicBgColor, color: dynamicTextColor }}
-              >
+              <div className="flex-1 relative flex flex-col">
                 
                 {/* Floating Back Button */}
                 <button 
