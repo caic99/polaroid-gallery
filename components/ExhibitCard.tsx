@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ExhibitItem } from '../types';
 import { getOptimizedImageUrl } from '../services/api';
@@ -38,44 +37,62 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, index }) =>
 
   const displayImages = uniqueImages.slice(0, 8);
 
+  // Extract Palette Colors specifically from the Cover Image (Gallery Identity)
+  const coverAsset = exhibit.coverImages?.[0]?.asset;
+  
+  // Fallback to first display asset if cover is missing, but prioritize cover.
+  const paletteSource = coverAsset || displayImages[0]?.asset;
+  const palette = paletteSource?.metadata?.palette;
+  
+  // Use 'dominant' color as requested
+  const bgColor = palette?.dominant?.background || '#151520';
+  const txtColor = palette?.dominant?.foreground || '#ffffff';
+
   return (
     <div 
       onClick={() => onClick(exhibit)}
-      className="bg-[#151520] rounded-2xl p-6 cursor-pointer active:scale-[0.99] transition-all duration-200 border border-white/5 shadow-xl hover:border-white/10 hover:shadow-2xl group"
+      className="rounded-2xl p-6 cursor-pointer active:scale-[0.99] transition-all duration-500 border border-white/5 shadow-xl hover:shadow-2xl group"
+      style={{ 
+        backgroundColor: bgColor,
+        color: txtColor 
+      }}
     >
       {/* Header Text */}
       <div className="flex flex-col gap-1 mb-6">
-        <span className="text-zinc-500 text-xs font-medium uppercase tracking-wider group-hover:text-zinc-400 transition-colors">
+        <span 
+          className="text-xs font-medium uppercase tracking-wider opacity-70 transition-colors"
+          style={{ color: 'inherit' }}
+        >
           {exhibit.subtitle || "Weekly 8 Gallery"}
         </span>
-        <h3 className="text-white text-2xl md:text-3xl font-bold leading-tight group-hover:text-polaroid-blue transition-colors">
+        <h3 
+          className="text-2xl md:text-3xl font-bold leading-tight transition-colors"
+          style={{ color: 'inherit' }}
+        >
           {exhibit.title}
         </h3>
       </div>
 
       {/* 8-Image Grid */}
       {/* 4 columns on mobile (2 rows), 8 columns on tablet/desktop (1 row) */}
-      <div className="grid grid-cols-4 md:grid-cols-8 gap-px">
+      <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
         {displayImages.map((img, i) => {
           const asset = img.asset;
           const url = asset ? getOptimizedImageUrl(asset.url, 400) : null;
           
+          if (!url) {
+            return <div key={i} className=" bg-white/5 " />;
+          }
+
           return (
-            <div key={i} className="aspect-square relative bg-zinc-900 overflow-hidden flex items-center justify-center">
-              {url ? (
-                <img 
-                  src={url} 
-                  alt="" 
-                  className="max-w-full max-h-full object-contain"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="w-full h-full bg-zinc-800" />
-              )}
-            </div>
+            <img 
+              key={i}
+              src={url} 
+              alt="" 
+            className="w-full h-full object-cover bg-white/5"
+            />
           );
         })}
-        {/* Fillers to maintain grid shape if needed, mostly relevant if we wanted exact empty slots, but letting it flow is fine. */}
       </div>
     </div>
   );

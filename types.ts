@@ -1,18 +1,24 @@
 
+export interface SanityPaletteSwatch {
+  background?: string;
+  foreground?: string;
+  population?: number;
+  title?: string;
+}
+
+export interface SanityPalette {
+  dominant?: SanityPaletteSwatch;
+  darkMuted?: SanityPaletteSwatch;
+  darkVibrant?: SanityPaletteSwatch;
+  muted?: SanityPaletteSwatch;
+  vibrant?: SanityPaletteSwatch;
+  lightMuted?: SanityPaletteSwatch;
+  lightVibrant?: SanityPaletteSwatch;
+}
+
 export interface SanityMetadata {
   blurHash?: string;
-  palette?: {
-    dominant?: {
-      background?: string;
-      foreground?: string;
-    };
-    muted?: {
-      background?: string;
-    };
-    vibrant?: {
-      background?: string;
-    };
-  };
+  palette?: SanityPalette;
 }
 
 export interface SanityAsset {

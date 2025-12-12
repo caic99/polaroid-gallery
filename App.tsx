@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { fetchExhibits, getOptimizedImageUrl } from './services/api';
 import { ExhibitItem, GalleryItem } from './types';
@@ -80,23 +79,40 @@ const App: React.FC = () => {
   // Filter valid items for the gallery view
   const galleryItems = selectedExhibit?.gallery?.galleryItems?.filter(i => i.image?.asset) || [];
 
+  // Determine Dynamic Colors based on the EXHIBIT (Cover Image)
+  const coverAsset = selectedExhibit?.coverImages?.[0]?.asset;
+  // Fallback to first gallery item if cover is missing
+  const paletteSource = coverAsset || galleryItems[0]?.image?.asset;
+  const palette = paletteSource?.metadata?.palette;
+  
+  // Use 'dominant' color as requested
+  const dynamicBgColor = palette?.dominant?.background || '#2c2435';
+  const dynamicTextColor = palette?.dominant?.foreground || '#ffffff';
+
   return (
-    <div className="min-h-screen bg-[#0e0e1a] flex flex-col font-sans text-zinc-100">
+    <div className="min-h-screen bg-[#0e0e1a] flex flex-col font-sans text-zinc-100 transition-colors duration-500">
       
       {/* App Header */}
-      <header className={`sticky top-0 z-40 w-full transition-colors duration-300 ${selectedExhibit ? 'bg-[#2c2435] shadow-sm' : 'bg-[#0e0e1a]/90 backdrop-blur-md border-b border-white/5'}`}>
+      <header 
+        className={`sticky top-0 z-40 w-full transition-colors duration-500 ${selectedExhibit ? 'shadow-sm' : 'bg-[#0e0e1a]/90 backdrop-blur-md border-b border-white/5'}`}
+        style={{ 
+          backgroundColor: selectedExhibit ? dynamicBgColor : undefined,
+          color: selectedExhibit ? dynamicTextColor : undefined
+        }}
+      >
         <div className="container mx-auto px-4 h-14 md:h-16 flex items-center justify-between relative">
           {selectedExhibit ? (
              <>
                <button 
                  onClick={handleBack}
-                 className="p-2 -ml-2 text-white hover:bg-white/10 rounded-full transition-all absolute left-4 z-10"
+                 className="p-2 -ml-2 hover:bg-black/10 rounded-full transition-all absolute left-4 z-10"
+                 style={{ color: 'inherit' }}
                >
                  <ArrowLeft className="w-6 h-6" />
                </button>
                
                <div className="w-full text-center">
-                 <h1 className="text-lg font-semibold tracking-wide truncate px-12">
+                 <h1 className="text-lg font-semibold tracking-wide truncate px-12" style={{ color: 'inherit' }}>
                    {selectedExhibit.title}
                  </h1>
                </div>
@@ -105,7 +121,7 @@ const App: React.FC = () => {
              </>
           ) : (
              <div className="pt-2 w-full">
-                <h1 className="text-3xl font-bold tracking-tight">
+                <h1 className="text-3xl font-bold tracking-tight text-white">
                   Weekly 8
                 </h1>
              </div>
@@ -134,7 +150,10 @@ const App: React.FC = () => {
           <>
             {selectedExhibit ? (
               // DETAIL VIEW: Horizontal Gallery
-              <div className="flex-1 bg-[#2c2435] relative flex flex-col">
+              <div 
+                className="flex-1 relative flex flex-col transition-colors duration-500"
+                style={{ backgroundColor: dynamicBgColor, color: dynamicTextColor }}
+              >
                 
                 {/* Horizontal Scroll Container */}
                 <div 
@@ -152,25 +171,19 @@ const App: React.FC = () => {
                             <div key={idx} className="min-w-full w-full h-full snap-center flex flex-col items-center justify-center p-4 md:p-8 relative">
                                 
                                 <div className="w-full h-full flex flex-col items-center justify-center gap-4 animate-in fade-in zoom-in-95 duration-500">
-                                  {/* Image Container - Flexible width/height, NO CROP */}
-                                  <div 
-                                      className="relative flex items-center justify-center cursor-zoom-in transition-transform hover:scale-[1.01] duration-300"
+                                  {/* Image - No extra wrapper, no hover zoom */}
+                                  <img 
+                                      src={imageUrl}
+                                      alt={item.title || "Gallery Item"}
                                       onClick={() => setSelectedImage(item)}
-                                  >
-                                      <img 
-                                          src={imageUrl}
-                                          alt={item.title || "Gallery Item"}
-                                          // w-auto h-auto object-contain ensures natural aspect ratio
-                                          // Max constraints ensure it fits on screen
-                                          className="max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl"
-                                          loading="lazy"
-                                          draggable="false"
-                                      />
-                                  </div>
+                                      className="max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl cursor-zoom-in"
+                                      loading="lazy"
+                                      draggable="false"
+                                  />
 
                                   {/* Meta Info Row - Only Author/Title */}
-                                  <div className="flex items-center justify-center text-white/90 mt-2">
-                                      <span className="font-medium text-lg tracking-wide drop-shadow-md">
+                                  <div className="flex items-center justify-center mt-2" style={{ color: 'inherit' }}>
+                                      <span className="font-medium text-lg tracking-wide drop-shadow-md opacity-90">
                                           {item.title || "Untitled"}
                                       </span>
                                   </div>
@@ -186,7 +199,8 @@ const App: React.FC = () => {
                   <button 
                     onClick={prevSlide}
                     disabled={currentIndex === 0}
-                    className="pointer-events-auto p-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all"
+                    className="pointer-events-auto p-2 rounded-full hover:bg-black/10 backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all"
+                    style={{ color: 'inherit' }}
                   >
                     <ChevronLeft className="w-6 h-6" />
                   </button>
@@ -198,8 +212,9 @@ const App: React.FC = () => {
                         key={idx}
                         onClick={() => scrollToIndex(idx)}
                         className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                          idx === currentIndex ? 'bg-white scale-125' : 'bg-white/30 hover:bg-white/50'
+                          idx === currentIndex ? 'scale-125' : 'opacity-40 hover:opacity-60'
                         }`}
+                        style={{ backgroundColor: 'currentColor' }}
                         aria-label={`Go to slide ${idx + 1}`}
                       />
                     ))}
@@ -209,7 +224,8 @@ const App: React.FC = () => {
                   <button 
                     onClick={nextSlide}
                     disabled={currentIndex === galleryItems.length - 1}
-                    className="pointer-events-auto p-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all"
+                    className="pointer-events-auto p-2 rounded-full hover:bg-black/10 backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all"
+                    style={{ color: 'inherit' }}
                   >
                     <ChevronLeft className="w-6 h-6 rotate-180" />
                   </button>
@@ -223,7 +239,7 @@ const App: React.FC = () => {
                   Explore fresh galleries curated by the Polaroid team.
                 </p>
                 
-                <div className="flex flex-col gap-8 max-w-7xl mx-auto">
+                <div className="flex flex-col gap-4 max-w-7xl mx-auto">
                   {exhibits.map((exhibit, idx) => (
                     <ExhibitCard 
                       key={exhibit.identifier} 
