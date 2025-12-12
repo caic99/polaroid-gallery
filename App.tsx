@@ -62,21 +62,21 @@ const GallerySlide = ({ item, onClick }: { item: GalleryItem, onClick: (item: Ga
       */}
       <div className="grid place-items-center w-full">
          
-         {/* Placeholder - Cross-fades out when loaded */}
+         {/* Placeholder - Transparent spacer to hold layout */}
          <img 
            src={placeholderSrc}
            alt=""
            width={finalWidth}
            height={finalHeight}
-           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl bg-white transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-0' : 'opacity-100'}`}
+           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-0' : 'opacity-100'}`}
          />
 
          {/* High Res Image (Overlay) - Fades in when loaded */}
          <img 
              src={highResUrl}
              alt={item.title || "Gallery Item"}
-             width={width}
-             height={height}
+             width={finalWidth}
+             height={finalHeight}
              onClick={() => onClick(item)}
              className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl cursor-zoom-in transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
              loading="lazy"
