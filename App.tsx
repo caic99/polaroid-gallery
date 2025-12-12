@@ -5,6 +5,44 @@ import ExhibitCard from './components/ExhibitCard';
 import Lightbox from './components/Lightbox';
 import { ArrowLeft, Loader2, AlertTriangle, ChevronLeft } from './components/Icons';
 
+// Sub-component for individual gallery slides to handle loading state
+const GallerySlide = ({ item, onClick }: { item: GalleryItem, onClick: (item: GalleryItem) => void }) => {
+  const [loaded, setLoaded] = useState(false);
+  const asset = item.image?.asset;
+  
+  if (!asset) return null;
+  const imageUrl = getOptimizedImageUrl(asset.url, 1200);
+
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center gap-4 animate-in fade-in zoom-in-95 duration-500">
+      {/* Image Container with Placeholder */}
+      <div className="relative flex items-center justify-center">
+         {/* 41:50 White Placeholder - Visible only when loading */}
+         {!loaded && (
+             <div className="w-[70vw] md:h-[60vh] aspect-[41/50] bg-white shadow-2xl animate-pulse" />
+         )}
+         
+         <img 
+             src={imageUrl}
+             alt={item.title || "Gallery Item"}
+             onClick={() => onClick(item)}
+             className={`max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl cursor-zoom-in transition-opacity duration-700 ${loaded ? 'opacity-100' : 'opacity-0 absolute'}`}
+             loading="lazy"
+             draggable="false"
+             onLoad={() => setLoaded(true)}
+         />
+      </div>
+
+      {/* Meta Info Row */}
+      <div className="flex items-center justify-center mt-2" style={{ color: 'inherit' }}>
+          <span className="font-medium text-lg tracking-wide drop-shadow-md opacity-90">
+              {item.title || "Untitled"}
+          </span>
+      </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [exhibits, setExhibits] = useState<ExhibitItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,35 +177,11 @@ const App: React.FC = () => {
                   className="flex-1 w-full overflow-x-auto snap-x snap-mandatory flex scrollbar-hide items-center"
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
-                    {galleryItems.map((item, idx) => {
-                        const asset = item.image?.asset;
-                        if (!asset) return null;
-                        const imageUrl = getOptimizedImageUrl(asset.url, 1200);
-                        
-                        return (
-                            <div key={idx} className="min-w-full w-full h-full snap-center flex flex-col items-center justify-center p-4 md:p-8 relative">
-                                
-                                <div className="w-full h-full flex flex-col items-center justify-center gap-4 animate-in fade-in zoom-in-95 duration-500">
-                                  {/* Image */}
-                                  <img 
-                                      src={imageUrl}
-                                      alt={item.title || "Gallery Item"}
-                                      onClick={() => setSelectedImage(item)}
-                                      className="max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl cursor-zoom-in"
-                                      loading="lazy"
-                                      draggable="false"
-                                  />
-
-                                  {/* Meta Info Row */}
-                                  <div className="flex items-center justify-center mt-2" style={{ color: 'inherit' }}>
-                                      <span className="font-medium text-lg tracking-wide drop-shadow-md opacity-90">
-                                          {item.title || "Untitled"}
-                                      </span>
-                                  </div>
-                                </div>
-                            </div>
-                        );
-                    })}
+                    {galleryItems.map((item, idx) => (
+                        <div key={idx} className="min-w-full w-full h-full snap-center flex flex-col items-center justify-center p-4 md:p-8 relative">
+                           <GallerySlide item={item} onClick={setSelectedImage} />
+                        </div>
+                    ))}
                 </div>
 
                 {/* Navigation Controls Row */}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ExhibitItem } from '../types';
 import { getOptimizedImageUrl } from '../services/api';
 
@@ -7,6 +7,22 @@ interface ExhibitCardProps {
   onClick: (exhibit: ExhibitItem) => void;
   index: number;
 }
+
+const CardImage = ({ src }: { src: string }) => {
+  const [loaded, setLoaded] = useState(false);
+  
+  return (
+    <div className="relative aspect-[41/50] w-full overflow-hidden bg-white">
+      <img 
+        src={src} 
+        alt="" 
+        loading="lazy"
+        className={`w-full h-full object-cover transition-opacity duration-700 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        onLoad={() => setLoaded(true)}
+      />
+    </div>
+  );
+};
 
 const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, index }) => {
   // Collect up to 8 images to display in the card preview
@@ -81,17 +97,10 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, index }) =>
           const url = asset ? getOptimizedImageUrl(asset.url, 400) : null;
           
           if (!url) {
-            return <div key={i} className=" bg-white/5 " />;
+            return <div key={i} className="aspect-[41/50] bg-white/5" />;
           }
 
-          return (
-            <img 
-              key={i}
-              src={url} 
-              alt="" 
-            className="w-full h-full object-cover bg-white/5"
-            />
-          );
+          return <CardImage key={i} src={url} />;
         })}
       </div>
     </div>
