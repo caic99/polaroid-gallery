@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ExhibitItem } from '../types';
 import { getOptimizedImageUrl } from '../services/api';
 
@@ -9,17 +9,16 @@ interface ExhibitCardProps {
 }
 
 const CardImage = ({ src }: { src: string }) => {
-  const [loaded, setLoaded] = useState(false);
-  
   return (
     <div className="relative aspect-[41/50] w-full overflow-hidden bg-white">
-      <img 
-        src={src} 
-        alt="" 
-        loading="lazy"
-        className={`w-full h-full object-cover transition-opacity duration-700 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        onLoad={() => setLoaded(true)}
-      />
+      <div className="w-full h-full bg-zinc-100">
+        <img 
+          src={src} 
+          alt="" 
+          loading="lazy"
+          className="w-full h-full object-cover"
+        />
+      </div>
     </div>
   );
 };
@@ -72,14 +71,14 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, index }) =>
   return (
     <div 
       onClick={handleCardClick}
-      className="rounded-2xl p-6 cursor-pointer active:scale-[0.99] transition-all duration-500 border border-white/5 shadow-xl hover:shadow-2xl group"
+      className="rounded-2xl p-6 cursor-pointer active:scale-[0.99] transition-transform duration-200 border border-white/5 shadow-xl hover:shadow-2xl group"
       style={{ 
         backgroundColor: bgColor,
-        color: txtColor 
+        color: txtColor,
       }}
     >
       {/* Header Text */}
-      <div className="flex flex-col gap-1 mb-6">
+      <div className="flex flex-col gap-1 mb-2">
         <span 
           className="text-xs font-medium uppercase tracking-wider opacity-70 transition-colors"
           style={{ color: 'inherit' }}

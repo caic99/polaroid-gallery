@@ -1,98 +1,26 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { fetchExhibits, getOptimizedImageUrl } from './services/api';
-import { ExhibitItem, GalleryItem } from './types';
+import React, { useEffect, useState, useRef, useCallback, useLayoutEffect } from 'react';
+import { fetchExhibits } from './services/api';
+import { ExhibitItem } from './types';
 import ExhibitCard from './components/ExhibitCard';
-import Lightbox from './components/Lightbox';
-import { ArrowLeft, Loader2, AlertTriangle, ChevronLeft } from './components/Icons';
+import GallerySlide from './components/GallerySlide';
+import { Loader2, AlertTriangle, ChevronLeft } from './components/Icons';
+import { interpolateColor, safeUpdateHistory } from './utils/helpers';
+import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
 
-// Helper to parse hex to rgb
-const hexToRgb = (hex: string) => {
-  const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-  hex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : { r: 0, g: 0, b: 0 };
+// Component to handle scroll restoration for Home View
+const ScrollRestorer = ({ position }: { position: number }) => {
+  useLayoutEffect(() => {
+    window.scrollTo({ top: position, behavior: 'instant' });
+  }, [position]);
+  return null;
 };
 
-// Helper to interpolate between two hex colors
-const interpolateColor = (c1: string, c2: string, factor: number) => {
-  const rgb1 = hexToRgb(c1);
-  const rgb2 = hexToRgb(c2);
-  const r = Math.round(rgb1.r + factor * (rgb2.r - rgb1.r));
-  const g = Math.round(rgb1.g + factor * (rgb2.g - rgb1.g));
-  const b = Math.round(rgb1.b + factor * (rgb2.b - rgb1.b));
-  return `rgb(${r}, ${g}, ${b})`;
-};
-
-// Sub-component for individual gallery slides to handle loading state
-const GallerySlide = ({ item, onClick }: { item: GalleryItem, onClick: (item: GalleryItem) => void }) => {
-  const [loaded, setLoaded] = useState(false);
-  const asset = item.image?.asset;
-  
-  if (!asset) return null;
-  const highResUrl = getOptimizedImageUrl(asset.url, 1200);
-  
-  // Calculate Dimensions from Metadata or URL
-  let width = asset.metadata?.dimensions?.width;
-  let height = asset.metadata?.dimensions?.height;
-
-  if ((!width || !height) && asset.url) {
-    const match = asset.url.match(/-(\d+)x(\d+)\./);
-    if (match) {
-      width = parseInt(match[1], 10);
-      height = parseInt(match[2], 10);
-    }
-  }
-
-  // Fallback defaults if detection fails
-  const finalWidth = width || 820; 
-  const finalHeight = height || 1000;
-  
-  // Transparent SVG Placeholder for layout matching
-  const placeholderSrc = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${finalWidth} ${finalHeight}'%3E%3C/svg%3E`;
-
-  return (
-    <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-      {/* 
-        Image Container 
-        Using CSS Grid to stack placeholder and image perfectly 
-      */}
-      <div className="grid place-items-center w-full">
-         
-         {/* Placeholder - Transparent spacer to hold layout */}
-         <img 
-           src={placeholderSrc}
-           alt=""
-           width={finalWidth}
-           height={finalHeight}
-           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-0' : 'opacity-100'}`}
-         />
-
-         {/* High Res Image (Overlay) - Fades in when loaded */}
-         <img 
-             src={highResUrl}
-             alt={item.title || "Gallery Item"}
-             width={finalWidth}
-             height={finalHeight}
-             onClick={() => onClick(item)}
-             className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl cursor-zoom-in transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
-             loading="lazy"
-             draggable="false"
-             onLoad={() => setLoaded(true)}
-         />
-      </div>
-
-      {/* Meta Info Row */}
-      <div className="flex items-center justify-center mt-2 px-4 text-center" style={{ color: 'inherit' }}>
-          <span className="font-medium text-lg tracking-wide drop-shadow-md opacity-90 line-clamp-2">
-              {item.title || "Untitled"}
-          </span>
-      </div>
-    </div>
-  );
+// Component to scroll to top for Detail View
+const ScrollToTop = () => {
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
+  return null;
 };
 
 const App: React.FC = () => {
@@ -100,16 +28,18 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedExhibit, setSelectedExhibit] = useState<ExhibitItem | null>(null);
-  const [selectedImage, setSelectedImage] = useState<GalleryItem | null>(null);
   
   // Carousel State
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
-  const isInternalNavigation = useRef(false);
+  
+  // Scroll Position Management
+  const homeScrollPosRef = useRef(0);
 
   // Sync state from URL parameters
   const syncStateFromUrl = useCallback((items: ExhibitItem[]) => {
+    // Basic search param parsing works in blob URL if query string is present
     const params = new URLSearchParams(window.location.search);
     const exhibitId = params.get('exhibit');
     const slideIndex = params.get('slide');
@@ -122,7 +52,6 @@ const App: React.FC = () => {
           const idx = parseInt(slideIndex, 10);
           if (!isNaN(idx) && idx >= 0) {
             setCurrentIndex(idx);
-            // We need to wait for render to scroll, handled in useEffect
           } else {
             setCurrentIndex(0);
           }
@@ -137,13 +66,17 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Manual scroll restoration to prevent browser interference during transitions
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+
     const loadData = async () => {
       setLoading(true);
       setError(null);
       try {
         const data = await fetchExhibits();
         setExhibits(data);
-        // Check URL for deep linking after data load
         syncStateFromUrl(data);
       } catch (err) {
         setError("Unable to retrieve gallery data.");
@@ -152,22 +85,9 @@ const App: React.FC = () => {
       }
     };
     loadData();
+  }, []);
 
-    const handlePopState = () => {
-      // Re-sync when browser back/forward is pressed
-      // We need the exhibits data which we might not have access to in this closure easily 
-      // if we don't use a ref or dependency. 
-      // Ideally, we'd trigger a re-sync. 
-      // Since exhibits state is stable after load, we can depend on it?
-      // Actually, React state in event listener might be stale.
-      // Use URLSearchParams directly in a way that depends on `exhibits`.
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []); // Run once on mount
-
-  // Effect to handle PopState with fresh data
+  // Handle browser back/forward URL sync
   useEffect(() => {
     const handlePopState = () => {
       if (exhibits.length > 0) {
@@ -178,45 +98,63 @@ const App: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [exhibits, syncStateFromUrl]);
 
-  // Effect to scroll to currentIndex when exhibit opens or index changes
-  useEffect(() => {
+  // Use LayoutEffect to handle scrolling BEFORE paint to ensure correct entry position.
+  useLayoutEffect(() => {
     if (selectedExhibit && scrollContainerRef.current) {
       const width = scrollContainerRef.current.clientWidth;
+      // Instant scroll to the target slide ONLY when exhibit changes (entry)
       scrollContainerRef.current.scrollTo({
         left: width * currentIndex,
-        behavior: 'instant' // Instant for initial load, user interaction handles smooth
+        behavior: 'instant'
       });
     }
-  }, [selectedExhibit]); // Only on exhibit change/open. Scroll handle manages its own updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedExhibit]); 
+
+  // Effect to scroll when index changes via navigation buttons
+  useEffect(() => {
+    if (selectedExhibit && scrollContainerRef.current) {
+       // Only smooth scroll if we are already viewing the gallery
+       const width = scrollContainerRef.current.clientWidth;
+       const currentScroll = scrollContainerRef.current.scrollLeft;
+       const targetScroll = width * currentIndex;
+       
+       // Only scroll if the difference is significant (avoids micro-adjustments during manual scroll)
+       if (Math.abs(currentScroll - targetScroll) > 20) {
+         scrollContainerRef.current.scrollTo({
+            left: targetScroll,
+            behavior: 'smooth'
+          });
+       }
+    }
+  }, [currentIndex, selectedExhibit]);
 
   const handleExhibitClick = (exhibit: ExhibitItem, initialIndex: number = 0) => {
+    // Save current scroll position before navigating to detail view
+    homeScrollPosRef.current = window.scrollY;
+
     setSelectedExhibit(exhibit);
     setCurrentIndex(initialIndex);
     
-    // Push state for entering the exhibit
-    const url = new URL(window.location.href);
-    url.searchParams.set('exhibit', exhibit.identifier);
-    url.searchParams.set('slide', initialIndex.toString());
-    window.history.pushState({}, '', url.toString());
-
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    const params = new URLSearchParams(window.location.search);
+    params.set('exhibit', exhibit.identifier);
+    params.set('slide', initialIndex.toString());
     
-    // Force scroll after render
-    setTimeout(() => {
-        if (scrollContainerRef.current) {
-            scrollContainerRef.current.scrollTo({
-                left: scrollContainerRef.current.clientWidth * initialIndex,
-                behavior: 'instant'
-            });
-        }
-    }, 0);
+    const newRelativePath = `?${params.toString()}`;
+    safeUpdateHistory('push', newRelativePath);
   };
 
   const handleBack = () => {
     setSelectedExhibit(null);
     setCurrentIndex(0);
-    // Push state for returning home
-    window.history.pushState({}, '', window.location.pathname);
+    
+    const params = new URLSearchParams(window.location.search);
+    params.delete('exhibit');
+    params.delete('slide');
+    const newSearch = params.toString();
+    const newRelativePath = newSearch ? `?${newSearch}` : window.location.pathname;
+    
+    safeUpdateHistory('push', newRelativePath);
   };
 
   // Pre-calculate colors for the current gallery
@@ -233,21 +171,18 @@ const App: React.FC = () => {
     if (scrollContainerRef.current) {
       const { scrollLeft, clientWidth } = scrollContainerRef.current;
       
-      // Discrete index for UI controls (dots, arrows)
       const index = Math.round(scrollLeft / clientWidth);
       if (index !== currentIndex) {
         setCurrentIndex(index);
         
-        // Update URL quietly (replaceState) when scrolling to avoid polluting history
         if (selectedExhibit) {
-           const url = new URL(window.location.href);
-           url.searchParams.set('exhibit', selectedExhibit.identifier);
-           url.searchParams.set('slide', index.toString());
-           window.history.replaceState({}, '', url.toString());
+           const params = new URLSearchParams(window.location.search);
+           params.set('exhibit', selectedExhibit.identifier);
+           params.set('slide', index.toString());
+           safeUpdateHistory('replace', `?${params.toString()}`);
         }
       }
 
-      // Continuous Linear Color Interpolation
       if (galleryColors.length > 0) {
         const maxIndex = galleryColors.length - 1;
         const rawProgress = scrollLeft / clientWidth;
@@ -255,7 +190,6 @@ const App: React.FC = () => {
         const index2 = Math.min(index1 + 1, maxIndex);
         const factor = rawProgress - index1;
         
-        // Clamp indices to bounds
         const safeIndex1 = Math.max(0, Math.min(index1, maxIndex));
         const safeIndex2 = Math.max(0, Math.min(index2, maxIndex));
 
@@ -264,7 +198,6 @@ const App: React.FC = () => {
         
         const newColor = interpolateColor(color1, color2, factor);
 
-        // Apply directly to DOM for instant feedback (bypassing React render cycle)
         if (mainRef.current) {
           mainRef.current.style.transition = 'none';
           mainRef.current.style.backgroundColor = newColor;
@@ -301,49 +234,40 @@ const App: React.FC = () => {
     }
   };
 
-  // Filter valid items for the gallery view
   const galleryItems = selectedExhibit?.gallery?.galleryItems?.filter(i => i.image?.asset) || [];
 
-  // Keyboard Navigation
   useEffect(() => {
-    // Only active if we are in detail view and lightbox is not open
-    if (!selectedExhibit || selectedImage) return;
+    if (!selectedExhibit) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') {
         prevSlide();
       } else if (e.key === 'ArrowRight') {
         nextSlide();
+      } else if (e.key === 'Escape') {
+        handleBack();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedExhibit, selectedImage, currentIndex]);
+  }, [selectedExhibit, currentIndex]);
 
-  // ---------------------------------------------------------------------------
-  // DYNAMIC COLOR LOGIC
-  // ---------------------------------------------------------------------------
-  
-  let appBgColor = '#0e0e1a'; // Default Home Background
-  let appTextColor = '#f4f4f5'; // Default Home Text
+  let appBgColor = '#0e0e1a'; 
+  let appTextColor = '#f4f4f5';
 
   if (selectedExhibit) {
-    // Discrete text color based on current slide (kept discrete for readability)
     const currentItem = galleryItems[currentIndex];
     const currentPalette = currentItem?.image?.asset?.metadata?.palette;
     const coverAsset = selectedExhibit?.coverImages?.[0]?.asset;
     const fallbackPalette = coverAsset?.metadata?.palette;
     const displayPalette = currentPalette || fallbackPalette;
     
-    // Note: Background color is handled by handleScroll when in detail view
     appTextColor = displayPalette?.dominant?.foreground || '#ffffff';
   }
 
-  // Handle Home <-> Detail Transitions and Initial States
   useEffect(() => {
     if (!selectedExhibit) {
-      // Returning to Home: Clear manual styles so CSS classes/React props take over
       if (mainRef.current) {
         mainRef.current.style.transition = ''; 
         mainRef.current.style.backgroundColor = ''; 
@@ -354,7 +278,6 @@ const App: React.FC = () => {
       const metaThemeColor = document.querySelector("meta[name='theme-color']");
       if (metaThemeColor) metaThemeColor.setAttribute('content', appBgColor);
     } else {
-      // Entering Detail: Set initial color immediately
       const initialColor = galleryColors[currentIndex] || galleryColors[0];
       if (initialColor) {
         if (mainRef.current) {
@@ -365,22 +288,18 @@ const App: React.FC = () => {
         if (metaThemeColor) metaThemeColor.setAttribute('content', initialColor);
       }
     }
-  }, [selectedExhibit, appBgColor]); 
-  // Dependency on appBgColor ensures home page updates if we ever change default home color logic
+  }, [selectedExhibit, appBgColor, galleryColors, currentIndex]); 
 
   return (
     <div 
       ref={mainRef}
       className="min-h-screen flex flex-col font-sans transition-colors duration-700 ease-in-out"
       style={{ 
-        // Only use React state for background color when in Home view.
-        // In Detail view, we let the ref/scroll logic handle the background to avoid fighting.
         backgroundColor: !selectedExhibit ? appBgColor : undefined, 
         color: appTextColor 
       }}
     >
-      
-      {/* Main Content Area */}
+      <LayoutGroup>
       <main className="flex-grow flex flex-col overflow-hidden relative">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-[60vh] text-zinc-500 gap-4">
@@ -398,22 +317,20 @@ const App: React.FC = () => {
             </button>
           </div>
         ) : (
-          <>
+          <AnimatePresence mode="wait">
             {selectedExhibit ? (
-              // DETAIL VIEW: Horizontal Gallery
-              <div className="flex-1 relative flex flex-col">
-                
-                {/* Floating Back Button */}
-                <button 
-                  onClick={handleBack}
-                  className="absolute top-6 left-6 md:top-8 md:left-8 z-50 p-3 -ml-3 rounded-full hover:bg-white/10 transition-all opacity-80 hover:opacity-100"
-                  style={{ color: 'inherit' }}
-                  aria-label="Back to gallery"
-                >
-                  <ArrowLeft className="w-8 h-8 md:w-10 md:h-10" />
-                </button>
+              // DETAIL VIEW
+              <motion.div 
+                key="detail"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                onClick={handleBack}
+                className="flex-1 relative flex flex-col w-full cursor-pointer"
+              >
+                <ScrollToTop />
 
-                {/* Horizontal Scroll Container */}
                 <div 
                   ref={scrollContainerRef}
                   onScroll={handleScroll}
@@ -422,30 +339,28 @@ const App: React.FC = () => {
                 >
                     {galleryItems.map((item, idx) => (
                         <div key={idx} className="min-w-full w-full h-full snap-center flex flex-col items-center justify-center p-4 md:p-8 relative">
-                           <GallerySlide item={item} onClick={setSelectedImage} />
+                           {/* Only prioritize loading for current and adjacent slides */}
+                           <GallerySlide item={item} priority={Math.abs(currentIndex - idx) <= 1} />
                         </div>
                     ))}
                 </div>
 
-                {/* Navigation Controls Row */}
                 <div className="absolute inset-x-0 bottom-8 flex justify-center items-center gap-6 z-10 pointer-events-none">
-                  {/* Left Button */}
                   <button 
-                    onClick={prevSlide}
+                    onClick={(e) => { e.stopPropagation(); prevSlide(); }}
                     disabled={currentIndex === 0}
-                    className="pointer-events-auto p-2 rounded-full hover:bg-black/10 backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all"
+                    className="pointer-events-auto p-2 rounded-full hover:bg-black/10 backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all cursor-pointer"
                     style={{ color: 'inherit' }}
                   >
                     <ChevronLeft className="w-6 h-6" />
                   </button>
 
-                  {/* Dots */}
                   <div className="flex gap-2 pointer-events-auto">
                     {galleryItems.map((_, idx) => (
                       <button
                         key={idx}
-                        onClick={() => scrollToIndex(idx)}
-                        className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                        onClick={(e) => { e.stopPropagation(); scrollToIndex(idx); }}
+                        className={`w-2 h-2 rounded-full transition-all duration-300 cursor-pointer ${
                           idx === currentIndex ? 'scale-125' : 'opacity-40 hover:opacity-60'
                         }`}
                         style={{ backgroundColor: 'currentColor' }}
@@ -454,25 +369,30 @@ const App: React.FC = () => {
                     ))}
                   </div>
 
-                  {/* Right Button */}
                   <button 
-                    onClick={nextSlide}
+                    onClick={(e) => { e.stopPropagation(); nextSlide(); }}
                     disabled={currentIndex === galleryItems.length - 1}
-                    className="pointer-events-auto p-2 rounded-full hover:bg-black/10 backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all"
+                    className="pointer-events-auto p-2 rounded-full hover:bg-black/10 backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all cursor-pointer"
                     style={{ color: 'inherit' }}
                   >
                     <ChevronLeft className="w-6 h-6 rotate-180" />
                   </button>
                 </div>
-
-              </div>
+              </motion.div>
             ) : (
-              // HOME VIEW: Vertical Stack
-              <div className="container mx-auto px-4 pt-12 pb-8 md:pt-20 md:pb-12">
+              // HOME VIEW
+              <motion.div 
+                key="home"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="container mx-auto px-4 pt-12 pb-8 md:pt-20 md:pb-12"
+              >
+                <ScrollRestorer position={homeScrollPosRef.current} />
                 <div className="max-w-7xl mx-auto">
-                  {/* Immersive Header */}
                   <div className="mb-10 md:mb-14">
-                    <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-white mb-4 leading-none">
+                    <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-white mb-2 leading-none">
                       Weekly 8
                     </h1>
                     <p className="text-zinc-400 text-lg md:text-2xl font-medium max-w-2xl">
@@ -491,19 +411,12 @@ const App: React.FC = () => {
                     ))}
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
-          </>
+          </AnimatePresence>
         )}
       </main>
-
-      {/* Lightbox Overlay */}
-      {selectedImage && (
-        <Lightbox 
-          item={selectedImage} 
-          onClose={() => setSelectedImage(null)} 
-        />
-      )}
+      </LayoutGroup>
     </div>
   );
 };
