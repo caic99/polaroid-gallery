@@ -5,6 +5,28 @@ import ExhibitCard from './components/ExhibitCard';
 import Lightbox from './components/Lightbox';
 import { ArrowLeft, Loader2, AlertTriangle, ChevronLeft } from './components/Icons';
 
+// Helper to parse hex to rgb
+const hexToRgb = (hex: string) => {
+  const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+  hex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : { r: 0, g: 0, b: 0 };
+};
+
+// Helper to interpolate between two hex colors
+const interpolateColor = (c1: string, c2: string, factor: number) => {
+  const rgb1 = hexToRgb(c1);
+  const rgb2 = hexToRgb(c2);
+  const r = Math.round(rgb1.r + factor * (rgb2.r - rgb1.r));
+  const g = Math.round(rgb1.g + factor * (rgb2.g - rgb1.g));
+  const b = Math.round(rgb1.b + factor * (rgb2.b - rgb1.b));
+  return `rgb(${r}, ${g}, ${b})`;
+};
+
 // Sub-component for individual gallery slides to handle loading state
 const GallerySlide = ({ item, onClick }: { item: GalleryItem, onClick: (item: GalleryItem) => void }) => {
   const [loaded, setLoaded] = useState(false);
@@ -66,6 +88,7 @@ const App: React.FC = () => {
   // Carousel State
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -94,12 +117,53 @@ const App: React.FC = () => {
     setCurrentIndex(0);
   };
 
+  // Pre-calculate colors for the current gallery
+  const galleryColors = React.useMemo(() => {
+    if (!selectedExhibit) return [];
+    const coverColor = selectedExhibit.coverImages?.[0]?.asset?.metadata?.palette?.dominant?.background || '#2c2435';
+    // Map items to their palette color or fallback
+    return (selectedExhibit.gallery?.galleryItems?.filter(i => i.image?.asset) || []).map(item => 
+       item.image?.asset?.metadata?.palette?.dominant?.background || coverColor
+    );
+  }, [selectedExhibit]);
+
   const handleScroll = () => {
     if (scrollContainerRef.current) {
       const { scrollLeft, clientWidth } = scrollContainerRef.current;
+      
+      // Discrete index for UI controls (dots, arrows)
       const index = Math.round(scrollLeft / clientWidth);
       if (index !== currentIndex) {
         setCurrentIndex(index);
+      }
+
+      // Continuous Linear Color Interpolation
+      if (galleryColors.length > 0) {
+        const maxIndex = galleryColors.length - 1;
+        const rawProgress = scrollLeft / clientWidth;
+        const index1 = Math.floor(rawProgress);
+        const index2 = Math.min(index1 + 1, maxIndex);
+        const factor = rawProgress - index1;
+        
+        // Clamp indices to bounds
+        const safeIndex1 = Math.max(0, Math.min(index1, maxIndex));
+        const safeIndex2 = Math.max(0, Math.min(index2, maxIndex));
+
+        const color1 = galleryColors[safeIndex1];
+        const color2 = galleryColors[safeIndex2];
+        
+        const newColor = interpolateColor(color1, color2, factor);
+
+        // Apply directly to DOM for instant feedback (bypassing React render cycle)
+        if (mainRef.current) {
+          mainRef.current.style.transition = 'none';
+          mainRef.current.style.backgroundColor = newColor;
+        }
+        document.body.style.transition = 'none';
+        document.body.style.backgroundColor = newColor;
+        
+        const metaThemeColor = document.querySelector("meta[name='theme-color']");
+        if (metaThemeColor) metaThemeColor.setAttribute('content', newColor);
       }
     }
   };
@@ -148,48 +212,62 @@ const App: React.FC = () => {
   }, [selectedExhibit, selectedImage, currentIndex]);
 
   // ---------------------------------------------------------------------------
-  // DYNAMIC COLOR LOGIC (Immersive)
+  // DYNAMIC COLOR LOGIC
   // ---------------------------------------------------------------------------
   
   let appBgColor = '#0e0e1a'; // Default Home Background
-  let appTextColor = '#f4f4f5'; // Default Home Text (zinc-100)
+  let appTextColor = '#f4f4f5'; // Default Home Text
 
   if (selectedExhibit) {
-    // Determine Dynamic Colors based on the CURRENT SLIDE (Individual Photo)
-    // We prioritize the palette of the currently visible image.
+    // Discrete text color based on current slide (kept discrete for readability)
     const currentItem = galleryItems[currentIndex];
     const currentPalette = currentItem?.image?.asset?.metadata?.palette;
-
-    // Fallback to exhibit cover if specific photo palette is missing
     const coverAsset = selectedExhibit?.coverImages?.[0]?.asset;
     const fallbackPalette = coverAsset?.metadata?.palette;
-
     const displayPalette = currentPalette || fallbackPalette;
     
-    appBgColor = displayPalette?.dominant?.background || '#2c2435';
+    // Note: Background color is handled by handleScroll when in detail view
     appTextColor = displayPalette?.dominant?.foreground || '#ffffff';
   }
 
-  // Sync Body Background & Meta Theme Color for mobile browsers
+  // Handle Home <-> Detail Transitions and Initial States
   useEffect(() => {
-    // 1. Update Body Background (covers overscroll areas)
-    document.body.style.backgroundColor = appBgColor;
-    
-    // 2. Update Meta Theme Color (covers status bars on iOS/Android)
-    let metaThemeColor = document.querySelector("meta[name='theme-color']");
-    if (!metaThemeColor) {
-        metaThemeColor = document.createElement('meta');
-        metaThemeColor.setAttribute('name', 'theme-color');
-        document.head.appendChild(metaThemeColor);
+    if (!selectedExhibit) {
+      // Returning to Home: Clear manual styles so CSS classes/React props take over
+      if (mainRef.current) {
+        mainRef.current.style.transition = ''; 
+        mainRef.current.style.backgroundColor = ''; 
+      }
+      document.body.style.transition = '';
+      document.body.style.backgroundColor = appBgColor;
+      
+      const metaThemeColor = document.querySelector("meta[name='theme-color']");
+      if (metaThemeColor) metaThemeColor.setAttribute('content', appBgColor);
+    } else {
+      // Entering Detail: Set initial color immediately
+      const initialColor = galleryColors[0];
+      if (initialColor) {
+        if (mainRef.current) {
+          mainRef.current.style.backgroundColor = initialColor;
+        }
+        document.body.style.backgroundColor = initialColor;
+        const metaThemeColor = document.querySelector("meta[name='theme-color']");
+        if (metaThemeColor) metaThemeColor.setAttribute('content', initialColor);
+      }
     }
-    metaThemeColor.setAttribute('content', appBgColor);
-
-  }, [appBgColor]);
+  }, [selectedExhibit, appBgColor]); 
+  // Dependency on appBgColor ensures home page updates if we ever change default home color logic
 
   return (
     <div 
+      ref={mainRef}
       className="min-h-screen flex flex-col font-sans transition-colors duration-700 ease-in-out"
-      style={{ backgroundColor: appBgColor, color: appTextColor }}
+      style={{ 
+        // Only use React state for background color when in Home view.
+        // In Detail view, we let the ref/scroll logic handle the background to avoid fighting.
+        backgroundColor: !selectedExhibit ? appBgColor : undefined, 
+        color: appTextColor 
+      }}
     >
       
       {/* Main Content Area */}
