@@ -31,10 +31,10 @@ const interpolateColor = (c1: string, c2: string, factor: number) => {
 const GallerySlide = ({ item, onClick }: { item: GalleryItem, onClick: (item: GalleryItem) => void }) => {
   const [loaded, setLoaded] = useState(false);
   const asset = item.image?.asset;
-  
+
   if (!asset) return null;
   const highResUrl = getOptimizedImageUrl(asset.url, 1200);
-  
+
   // Calculate Dimensions from Metadata or URL
   let width = asset.metadata?.dimensions?.width;
   let height = asset.metadata?.dimensions?.height;
@@ -48,22 +48,22 @@ const GallerySlide = ({ item, onClick }: { item: GalleryItem, onClick: (item: Ga
   }
 
   // Fallback defaults if detection fails
-  const finalWidth = width || 820; 
+  const finalWidth = width || 820;
   const finalHeight = height || 1000;
-  
+
   // Transparent SVG Placeholder for layout matching
   const placeholderSrc = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${finalWidth} ${finalHeight}'%3E%3C/svg%3E`;
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-      {/* 
-        Image Container 
-        Using CSS Grid to stack placeholder and image perfectly 
+      {/*
+        Image Container
+        Using CSS Grid to stack placeholder and image perfectly
       */}
       <div className="grid place-items-center w-full">
-         
+
          {/* Placeholder - Transparent spacer to hold layout */}
-         <img 
+         <img
            src={placeholderSrc}
            alt=""
            width={finalWidth}
@@ -72,7 +72,7 @@ const GallerySlide = ({ item, onClick }: { item: GalleryItem, onClick: (item: Ga
          />
 
          {/* High Res Image (Overlay) - Fades in when loaded */}
-         <img 
+         <img
              src={highResUrl}
              alt={item.title || "Gallery Item"}
              width={finalWidth}
@@ -101,7 +101,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedExhibit, setSelectedExhibit] = useState<ExhibitItem | null>(null);
   const [selectedImage, setSelectedImage] = useState<GalleryItem | null>(null);
-  
+
   // Carousel State
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -155,9 +155,9 @@ const App: React.FC = () => {
 
     const handlePopState = () => {
       // Re-sync when browser back/forward is pressed
-      // We need the exhibits data which we might not have access to in this closure easily 
-      // if we don't use a ref or dependency. 
-      // Ideally, we'd trigger a re-sync. 
+      // We need the exhibits data which we might not have access to in this closure easily
+      // if we don't use a ref or dependency.
+      // Ideally, we'd trigger a re-sync.
       // Since exhibits state is stable after load, we can depend on it?
       // Actually, React state in event listener might be stale.
       // Use URLSearchParams directly in a way that depends on `exhibits`.
@@ -192,7 +192,7 @@ const App: React.FC = () => {
   const handleExhibitClick = (exhibit: ExhibitItem, initialIndex: number = 0) => {
     setSelectedExhibit(exhibit);
     setCurrentIndex(initialIndex);
-    
+
     // Push state for entering the exhibit
     const url = new URL(window.location.href);
     url.searchParams.set('exhibit', exhibit.identifier);
@@ -200,7 +200,7 @@ const App: React.FC = () => {
     window.history.pushState({}, '', url.toString());
 
     window.scrollTo({ top: 0, behavior: 'instant' });
-    
+
     // Force scroll after render
     setTimeout(() => {
         if (scrollContainerRef.current) {
@@ -224,7 +224,7 @@ const App: React.FC = () => {
     if (!selectedExhibit) return [];
     const coverColor = selectedExhibit.coverImages?.[0]?.asset?.metadata?.palette?.dominant?.background || '#2c2435';
     // Map items to their palette color or fallback
-    return (selectedExhibit.gallery?.galleryItems?.filter(i => i.image?.asset) || []).map(item => 
+    return (selectedExhibit.gallery?.galleryItems?.filter(i => i.image?.asset) || []).map(item =>
        item.image?.asset?.metadata?.palette?.dominant?.background || coverColor
     );
   }, [selectedExhibit]);
@@ -232,12 +232,12 @@ const App: React.FC = () => {
   const handleScroll = () => {
     if (scrollContainerRef.current) {
       const { scrollLeft, clientWidth } = scrollContainerRef.current;
-      
+
       // Discrete index for UI controls (dots, arrows)
       const index = Math.round(scrollLeft / clientWidth);
       if (index !== currentIndex) {
         setCurrentIndex(index);
-        
+
         // Update URL quietly (replaceState) when scrolling to avoid polluting history
         if (selectedExhibit) {
            const url = new URL(window.location.href);
@@ -254,14 +254,14 @@ const App: React.FC = () => {
         const index1 = Math.floor(rawProgress);
         const index2 = Math.min(index1 + 1, maxIndex);
         const factor = rawProgress - index1;
-        
+
         // Clamp indices to bounds
         const safeIndex1 = Math.max(0, Math.min(index1, maxIndex));
         const safeIndex2 = Math.max(0, Math.min(index2, maxIndex));
 
         const color1 = galleryColors[safeIndex1];
         const color2 = galleryColors[safeIndex2];
-        
+
         const newColor = interpolateColor(color1, color2, factor);
 
         // Apply directly to DOM for instant feedback (bypassing React render cycle)
@@ -271,7 +271,7 @@ const App: React.FC = () => {
         }
         document.body.style.transition = 'none';
         document.body.style.backgroundColor = newColor;
-        
+
         const metaThemeColor = document.querySelector("meta[name='theme-color']");
         if (metaThemeColor) metaThemeColor.setAttribute('content', newColor);
       }
@@ -321,10 +321,26 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedExhibit, selectedImage, currentIndex]);
 
+  // Dynamic Document Title
+  useEffect(() => {
+    const baseTitle = "Weekly 8 by Polaroid";
+    if (selectedExhibit) {
+      const currentItem = galleryItems[currentIndex];
+      const itemTitle = currentItem?.title;
+      if (itemTitle) {
+         document.title = `${baseTitle} | ${selectedExhibit.title} - ${itemTitle}`;
+      } else {
+         document.title = `${baseTitle} | ${selectedExhibit.title}`;
+      }
+    } else {
+      document.title = baseTitle;
+    }
+  }, [selectedExhibit, currentIndex, galleryItems]);
+
   // ---------------------------------------------------------------------------
   // DYNAMIC COLOR LOGIC
   // ---------------------------------------------------------------------------
-  
+
   let appBgColor = '#0e0e1a'; // Default Home Background
   let appTextColor = '#f4f4f5'; // Default Home Text
 
@@ -335,7 +351,7 @@ const App: React.FC = () => {
     const coverAsset = selectedExhibit?.coverImages?.[0]?.asset;
     const fallbackPalette = coverAsset?.metadata?.palette;
     const displayPalette = currentPalette || fallbackPalette;
-    
+
     // Note: Background color is handled by handleScroll when in detail view
     appTextColor = displayPalette?.dominant?.foreground || '#ffffff';
   }
@@ -345,12 +361,12 @@ const App: React.FC = () => {
     if (!selectedExhibit) {
       // Returning to Home: Clear manual styles so CSS classes/React props take over
       if (mainRef.current) {
-        mainRef.current.style.transition = ''; 
-        mainRef.current.style.backgroundColor = ''; 
+        mainRef.current.style.transition = '';
+        mainRef.current.style.backgroundColor = '';
       }
       document.body.style.transition = '';
       document.body.style.backgroundColor = appBgColor;
-      
+
       const metaThemeColor = document.querySelector("meta[name='theme-color']");
       if (metaThemeColor) metaThemeColor.setAttribute('content', appBgColor);
     } else {
@@ -365,21 +381,21 @@ const App: React.FC = () => {
         if (metaThemeColor) metaThemeColor.setAttribute('content', initialColor);
       }
     }
-  }, [selectedExhibit, appBgColor]); 
+  }, [selectedExhibit, appBgColor]);
   // Dependency on appBgColor ensures home page updates if we ever change default home color logic
 
   return (
-    <div 
+    <div
       ref={mainRef}
       className="min-h-screen flex flex-col font-sans transition-colors duration-700 ease-in-out"
-      style={{ 
+      style={{
         // Only use React state for background color when in Home view.
         // In Detail view, we let the ref/scroll logic handle the background to avoid fighting.
-        backgroundColor: !selectedExhibit ? appBgColor : undefined, 
-        color: appTextColor 
+        backgroundColor: !selectedExhibit ? appBgColor : undefined,
+        color: appTextColor
       }}
     >
-      
+
       {/* Main Content Area */}
       <main className="flex-grow flex flex-col overflow-hidden relative">
         {loading ? (
@@ -390,7 +406,7 @@ const App: React.FC = () => {
            <div className="flex flex-col items-center justify-center h-[50vh] text-center px-6">
             <AlertTriangle className="w-8 h-8 text-polaroid-red mb-4" />
             <p className="text-zinc-400 mb-6">{error}</p>
-            <button 
+            <button
               onClick={() => window.location.reload()}
               className="px-6 py-2 bg-zinc-800 text-white rounded-full text-sm font-medium"
             >
@@ -402,9 +418,9 @@ const App: React.FC = () => {
             {selectedExhibit ? (
               // DETAIL VIEW: Horizontal Gallery
               <div className="flex-1 relative flex flex-col">
-                
+
                 {/* Floating Back Button */}
-                <button 
+                <button
                   onClick={handleBack}
                   className="absolute top-6 left-6 md:top-8 md:left-8 z-50 p-3 -ml-3 rounded-full hover:bg-white/10 transition-all opacity-80 hover:opacity-100"
                   style={{ color: 'inherit' }}
@@ -414,7 +430,7 @@ const App: React.FC = () => {
                 </button>
 
                 {/* Horizontal Scroll Container */}
-                <div 
+                <div
                   ref={scrollContainerRef}
                   onScroll={handleScroll}
                   className="flex-1 w-full overflow-x-auto snap-x snap-mandatory flex scrollbar-hide items-center"
@@ -430,7 +446,7 @@ const App: React.FC = () => {
                 {/* Navigation Controls Row */}
                 <div className="absolute inset-x-0 bottom-8 flex justify-center items-center gap-6 z-10 pointer-events-none">
                   {/* Left Button */}
-                  <button 
+                  <button
                     onClick={prevSlide}
                     disabled={currentIndex === 0}
                     className="pointer-events-auto p-2 rounded-full hover:bg-black/10 backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all"
@@ -455,7 +471,7 @@ const App: React.FC = () => {
                   </div>
 
                   {/* Right Button */}
-                  <button 
+                  <button
                     onClick={nextSlide}
                     disabled={currentIndex === galleryItems.length - 1}
                     className="pointer-events-auto p-2 rounded-full hover:bg-black/10 backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all"
@@ -473,19 +489,19 @@ const App: React.FC = () => {
                   {/* Immersive Header */}
                   <div className="mb-10 md:mb-14">
                     <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-white mb-4 leading-none">
-                      Weekly 8
+                      Weekly 8 by Polaroid
                     </h1>
                     <p className="text-zinc-400 text-lg md:text-2xl font-medium max-w-2xl">
                       Explore fresh galleries curated by the Polaroid team.
                     </p>
                   </div>
-                  
+
                   <div className="flex flex-col gap-6">
                     {exhibits.map((exhibit, idx) => (
-                      <ExhibitCard 
-                        key={exhibit.identifier} 
-                        exhibit={exhibit} 
-                        onClick={handleExhibitClick} 
+                      <ExhibitCard
+                        key={exhibit.identifier}
+                        exhibit={exhibit}
+                        onClick={handleExhibitClick}
                         index={idx}
                       />
                     ))}
@@ -499,9 +515,9 @@ const App: React.FC = () => {
 
       {/* Lightbox Overlay */}
       {selectedImage && (
-        <Lightbox 
-          item={selectedImage} 
-          onClose={() => setSelectedImage(null)} 
+        <Lightbox
+          item={selectedImage}
+          onClose={() => setSelectedImage(null)}
         />
       )}
     </div>
