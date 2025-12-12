@@ -64,8 +64,7 @@ const GallerySlide: React.FC<GallerySlideProps> = ({ item, priority = false }) =
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            onClick={(e) => e.stopPropagation()} 
-            className="relative shadow-2xl overflow-hidden bg-black/10 cursor-default"
+            className="relative shadow-2xl overflow-hidden bg-black/10"
             style={{
               width: renderWidth,
               height: renderHeight,

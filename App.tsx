@@ -327,7 +327,7 @@ const App: React.FC = () => {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
                 onClick={handleBack}
-                className="flex-1 relative flex flex-col w-full cursor-pointer"
+                className="flex-1 relative flex flex-col w-full cursor-zoom-out"
               >
                 <ScrollToTop />
 
