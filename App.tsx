@@ -34,36 +34,51 @@ const GallerySlide = ({ item, onClick }: { item: GalleryItem, onClick: (item: Ga
   
   if (!asset) return null;
   const highResUrl = getOptimizedImageUrl(asset.url, 1200);
-  const dims = asset.metadata?.dimensions;
+  
+  // Calculate Dimensions from Metadata or URL
+  let width = asset.metadata?.dimensions?.width;
+  let height = asset.metadata?.dimensions?.height;
+
+  if ((!width || !height) && asset.url) {
+    const match = asset.url.match(/-(\d+)x(\d+)\./);
+    if (match) {
+      width = parseInt(match[1], 10);
+      height = parseInt(match[2], 10);
+    }
+  }
+
+  // Fallback defaults if detection fails
+  const finalWidth = width || 820; 
+  const finalHeight = height || 1000;
+  
+  // Transparent SVG Placeholder for layout matching
+  const placeholderSrc = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${finalWidth} ${finalHeight}'%3E%3C/svg%3E`;
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center gap-4">
       {/* 
         Image Container 
+        Using CSS Grid to stack placeholder and image perfectly 
       */}
-      <div className="relative grid place-items-center">
+      <div className="grid place-items-center w-full">
          
-         {/* 41:50 White Placeholder - Visible while loading */}
-         {!loaded && (
-           <div 
-             className="absolute z-0 bg-white shadow-2xl"
-             style={{ 
-               aspectRatio: '41/50', 
-               height: 'min(60vh, 800px)',
-               width: 'auto',
-               maxHeight: '70vh'
-             }}
-           />
-         )}
+         {/* Placeholder - Cross-fades out when loaded */}
+         <img 
+           src={placeholderSrc}
+           alt=""
+           width={finalWidth}
+           height={finalHeight}
+           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl bg-white transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-0' : 'opacity-100'}`}
+         />
 
-         {/* High Res Image (Foreground) */}
+         {/* High Res Image (Overlay) - Fades in when loaded */}
          <img 
              src={highResUrl}
              alt={item.title || "Gallery Item"}
-             width={dims?.width}
-             height={dims?.height}
+             width={width}
+             height={height}
              onClick={() => onClick(item)}
-             className={`relative z-10 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl cursor-zoom-in transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
+             className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl cursor-zoom-in transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
              loading="lazy"
              draggable="false"
              onLoad={() => setLoaded(true)}
