@@ -37,6 +37,9 @@ const App: React.FC = () => {
   // Scroll Position Management
   const homeScrollPosRef = useRef(0);
 
+  // Set base title from initial document title
+  const [baseTitle] = useState(document.title);
+
   // Sync state from URL parameters
   const syncStateFromUrl = useCallback((items: ExhibitItem[]) => {
     // Basic search param parsing works in blob URL if query string is present
@@ -97,6 +100,24 @@ const App: React.FC = () => {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [exhibits, syncStateFromUrl]);
+
+  // Update document title based on current view
+  useEffect(() => {
+    if (selectedExhibit) {
+      const galleryItems = selectedExhibit.gallery?.galleryItems?.filter(i => i.image?.asset) || [];
+      const currentItem = galleryItems[currentIndex];
+      
+      let newTitle = selectedExhibit.title;
+      // Prepend image title if it exists and is different from the exhibit title
+      if (currentItem?.title && currentItem.title.toLowerCase() !== newTitle.toLowerCase()) {
+        newTitle = `${currentItem.title} - ${newTitle}`;
+      }
+      
+      document.title = `${newTitle} | ${baseTitle}`;
+    } else {
+      document.title = baseTitle;
+    }
+  }, [selectedExhibit, currentIndex, baseTitle]);
 
   // Use LayoutEffect to handle scrolling BEFORE paint to ensure correct entry position.
   useLayoutEffect(() => {

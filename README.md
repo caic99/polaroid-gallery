@@ -1,6 +1,8 @@
-# Polaroid Gallery Explorer
+# Weekly 8 by Polaroid
 
 An immersive web application for exploring curated photo galleries, built with React, TypeScript, and Framer Motion, using data from Polaroid's public API. This project showcases a modern, fluid user interface with a strong focus on smooth animations and a visually pleasing experience.
+
+![Weekly 8 by Polaroid Screenshot](https://i.imgur.com/xQf2o0T.png)
 
 ## Key Features
 
