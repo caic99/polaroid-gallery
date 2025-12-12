@@ -79,56 +79,23 @@ const App: React.FC = () => {
   // Filter valid items for the gallery view
   const galleryItems = selectedExhibit?.gallery?.galleryItems?.filter(i => i.image?.asset) || [];
 
-  // Determine Dynamic Colors based on the EXHIBIT (Cover Image)
+  // Determine Dynamic Colors based on the CURRENT SLIDE (Individual Photo)
+  // We prioritize the palette of the currently visible image.
+  const currentItem = galleryItems[currentIndex];
+  const currentPalette = currentItem?.image?.asset?.metadata?.palette;
+
+  // Fallback to exhibit cover if specific photo palette is missing
   const coverAsset = selectedExhibit?.coverImages?.[0]?.asset;
-  // Fallback to first gallery item if cover is missing
-  const paletteSource = coverAsset || galleryItems[0]?.image?.asset;
-  const palette = paletteSource?.metadata?.palette;
+  const fallbackPalette = coverAsset?.metadata?.palette;
+
+  const displayPalette = currentPalette || fallbackPalette;
   
-  // Use 'dominant' color as requested
-  const dynamicBgColor = palette?.dominant?.background || '#2c2435';
-  const dynamicTextColor = palette?.dominant?.foreground || '#ffffff';
+  const dynamicBgColor = displayPalette?.dominant?.background || '#2c2435';
+  const dynamicTextColor = displayPalette?.dominant?.foreground || '#ffffff';
 
   return (
     <div className="min-h-screen bg-[#0e0e1a] flex flex-col font-sans text-zinc-100 transition-colors duration-500">
       
-      {/* App Header */}
-      <header 
-        className={`sticky top-0 z-40 w-full transition-colors duration-500 ${selectedExhibit ? 'shadow-sm' : 'bg-[#0e0e1a]/90 backdrop-blur-md border-b border-white/5'}`}
-        style={{ 
-          backgroundColor: selectedExhibit ? dynamicBgColor : undefined,
-          color: selectedExhibit ? dynamicTextColor : undefined
-        }}
-      >
-        <div className="container mx-auto px-4 h-14 md:h-16 flex items-center justify-between relative">
-          {selectedExhibit ? (
-             <>
-               <button 
-                 onClick={handleBack}
-                 className="p-2 -ml-2 hover:bg-black/10 rounded-full transition-all absolute left-4 z-10"
-                 style={{ color: 'inherit' }}
-               >
-                 <ArrowLeft className="w-6 h-6" />
-               </button>
-               
-               <div className="w-full text-center">
-                 <h1 className="text-lg font-semibold tracking-wide truncate px-12" style={{ color: 'inherit' }}>
-                   {selectedExhibit.title}
-                 </h1>
-               </div>
-               
-               <div className="w-10"></div>
-             </>
-          ) : (
-             <div className="pt-2 w-full">
-                <h1 className="text-3xl font-bold tracking-tight text-white">
-                  Weekly 8
-                </h1>
-             </div>
-          )}
-        </div>
-      </header>
-
       {/* Main Content Area */}
       <main className="flex-grow flex flex-col overflow-hidden relative">
         {loading ? (
@@ -151,10 +118,20 @@ const App: React.FC = () => {
             {selectedExhibit ? (
               // DETAIL VIEW: Horizontal Gallery
               <div 
-                className="flex-1 relative flex flex-col transition-colors duration-500"
+                className="flex-1 relative flex flex-col transition-colors duration-700 ease-in-out"
                 style={{ backgroundColor: dynamicBgColor, color: dynamicTextColor }}
               >
                 
+                {/* Floating Back Button */}
+                <button 
+                  onClick={handleBack}
+                  className="absolute top-6 left-6 md:top-8 md:left-8 z-50 p-3 -ml-3 rounded-full hover:bg-white/10 transition-all opacity-80 hover:opacity-100"
+                  style={{ color: 'inherit' }}
+                  aria-label="Back to gallery"
+                >
+                  <ArrowLeft className="w-8 h-8 md:w-10 md:h-10" />
+                </button>
+
                 {/* Horizontal Scroll Container */}
                 <div 
                   ref={scrollContainerRef}
@@ -171,7 +148,7 @@ const App: React.FC = () => {
                             <div key={idx} className="min-w-full w-full h-full snap-center flex flex-col items-center justify-center p-4 md:p-8 relative">
                                 
                                 <div className="w-full h-full flex flex-col items-center justify-center gap-4 animate-in fade-in zoom-in-95 duration-500">
-                                  {/* Image - No extra wrapper, no hover zoom */}
+                                  {/* Image */}
                                   <img 
                                       src={imageUrl}
                                       alt={item.title || "Gallery Item"}
@@ -181,7 +158,7 @@ const App: React.FC = () => {
                                       draggable="false"
                                   />
 
-                                  {/* Meta Info Row - Only Author/Title */}
+                                  {/* Meta Info Row */}
                                   <div className="flex items-center justify-center mt-2" style={{ color: 'inherit' }}>
                                       <span className="font-medium text-lg tracking-wide drop-shadow-md opacity-90">
                                           {item.title || "Untitled"}
@@ -193,7 +170,7 @@ const App: React.FC = () => {
                     })}
                 </div>
 
-                {/* Navigation Controls Row (Buttons + Dots) */}
+                {/* Navigation Controls Row */}
                 <div className="absolute inset-x-0 bottom-8 flex justify-center items-center gap-6 z-10 pointer-events-none">
                   {/* Left Button */}
                   <button 
@@ -234,20 +211,28 @@ const App: React.FC = () => {
               </div>
             ) : (
               // HOME VIEW: Vertical Stack
-              <div className="container mx-auto px-4 py-8 animate-in fade-in duration-300">
-                <p className="text-zinc-400 text-sm mb-6">
-                  Explore fresh galleries curated by the Polaroid team.
-                </p>
-                
-                <div className="flex flex-col gap-4 max-w-7xl mx-auto">
-                  {exhibits.map((exhibit, idx) => (
-                    <ExhibitCard 
-                      key={exhibit.identifier} 
-                      exhibit={exhibit} 
-                      onClick={handleExhibitClick} 
-                      index={idx}
-                    />
-                  ))}
+              <div className="container mx-auto px-4 pt-12 pb-8 md:pt-20 md:pb-12 animate-in fade-in duration-300">
+                <div className="max-w-7xl mx-auto">
+                  {/* Immersive Header */}
+                  <div className="mb-10 md:mb-14">
+                    <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-white mb-4 leading-none">
+                      Weekly 8
+                    </h1>
+                    <p className="text-zinc-400 text-lg md:text-2xl font-medium max-w-2xl">
+                      Explore fresh galleries curated by the Polaroid team.
+                    </p>
+                  </div>
+                  
+                  <div className="flex flex-col gap-6">
+                    {exhibits.map((exhibit, idx) => (
+                      <ExhibitCard 
+                        key={exhibit.identifier} 
+                        exhibit={exhibit} 
+                        onClick={handleExhibitClick} 
+                        index={idx}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
