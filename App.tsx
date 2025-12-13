@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { fetchExhibits, getOptimizedImageUrl } from './services/api';
-import { ExhibitItem, GalleryItem } from './types';
+import { ExhibitItem, GalleryItem, PortableTextBlock } from './types';
 import ExhibitCard from './components/ExhibitCard';
 import { ArrowLeft, Loader2, AlertTriangle, ChevronLeft } from './components/Icons';
 
@@ -14,6 +14,20 @@ const hexToRgb = (hex: string) => {
     g: parseInt(result[2], 16),
     b: parseInt(result[3], 16)
   } : { r: 0, g: 0, b: 0 };
+};
+
+const renderDescription = (desc: string | PortableTextBlock[] | undefined) => {
+  if (!desc) return null;
+  if (typeof desc === 'string') return desc;
+  if (Array.isArray(desc)) {
+    return desc.map(block => {
+      if (block._type === 'block' && block.children) {
+        return block.children.map(span => span.text).join('');
+      }
+      return '';
+    }).join('\n');
+  }
+  return null;
 };
 
 // Helper to interpolate between two hex colors
@@ -82,10 +96,15 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
       </div>
 
       {/* Meta Info Row */}
-      <div className="flex items-center justify-center mt-2 px-4 text-center" style={{ color: 'inherit' }}>
+      <div className="flex flex-col items-center justify-center mt-2 px-4 text-center" style={{ color: 'inherit' }}>
           <span className="font-medium text-lg tracking-wide drop-shadow-md opacity-90 line-clamp-2">
               {item.title}
           </span>
+          {item.desc && (
+             <span className="mt-1 text-sm opacity-80 max-w-2xl line-clamp-3">
+               {renderDescription(item.desc)}
+             </span>
+          )}
       </div>
     </div>
   );

@@ -39,9 +39,19 @@ export interface SanityImage {
   asset: SanityAsset;
 }
 
+export interface PortableTextSpan {
+  _type: 'span';
+  text: string;
+}
+
+export interface PortableTextBlock {
+  _type: 'block';
+  children: PortableTextSpan[];
+}
+
 export interface GalleryItem {
   title?: string;
-  desc?: string;
+  desc?: string | PortableTextBlock[];
   image?: SanityImage;
   submissionEntryIdentifier?: string;
 }

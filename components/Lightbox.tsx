@@ -1,11 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { GalleryItem } from '../types';
+import { GalleryItem, PortableTextBlock } from '../types';
 import { getOptimizedImageUrl } from '../services/api';
 
 interface LightboxProps {
   item: GalleryItem;
   onClose: () => void;
 }
+
+const renderDescription = (desc: string | PortableTextBlock[] | undefined) => {
+  if (!desc) return null;
+  if (typeof desc === 'string') return desc;
+  if (Array.isArray(desc)) {
+    return desc.map(block => {
+      if (block._type === 'block' && block.children) {
+        return block.children.map(span => span.text).join('');
+      }
+      return '';
+    }).join('\n');
+  }
+  return null;
+};
 
 const Lightbox: React.FC<LightboxProps> = ({ item, onClose }) => {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -48,7 +62,7 @@ const Lightbox: React.FC<LightboxProps> = ({ item, onClose }) => {
             <h2 className="text-xl font-bold text-white tracking-wide">{item.title}</h2>
           )}
           {item.desc && (
-            <p className="mt-2 text-sm text-zinc-400 max-w-2xl mx-auto">{item.desc}</p>
+            <p className="mt-2 text-sm text-zinc-400 max-w-2xl mx-auto">{renderDescription(item.desc)}</p>
           )}
         </div>
       </div>
