@@ -102,6 +102,7 @@ const App: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const isInternalNavigation = useRef(false);
+  const isTransitioning = useRef(false);
 
   // Sync state from URL parameters
   const syncStateFromUrl = useCallback((items: ExhibitItem[]) => {
@@ -261,10 +262,15 @@ const App: React.FC = () => {
 
         // Apply directly to DOM for instant feedback (bypassing React render cycle)
         if (mainRef.current) {
-          mainRef.current.style.transition = 'none';
+          // Only disable transition if we are not in the initial entry phase
+          if (!isTransitioning.current) {
+             mainRef.current.style.transition = 'none';
+          }
           mainRef.current.style.backgroundColor = newColor;
         }
-        document.body.style.transition = 'none';
+        if (!isTransitioning.current) {
+            document.body.style.transition = 'none';
+        }
         document.body.style.backgroundColor = newColor;
 
         const metaThemeColor = document.querySelector("meta[name='theme-color']");
@@ -368,12 +374,21 @@ const App: React.FC = () => {
       // Entering Detail: Set initial color immediately
       const initialColor = galleryColors[currentIndex] || galleryColors[0];
       if (initialColor) {
+        // Enable transition for the initial color switch
+        isTransitioning.current = true;
         if (mainRef.current) {
+          mainRef.current.style.transition = 'background-color 0.7s ease-in-out';
           mainRef.current.style.backgroundColor = initialColor;
         }
+        document.body.style.transition = 'background-color 0.7s ease-in-out';
         document.body.style.backgroundColor = initialColor;
         const metaThemeColor = document.querySelector("meta[name='theme-color']");
         if (metaThemeColor) metaThemeColor.setAttribute('content', initialColor);
+
+        // Disable transition lock after animation completes
+        setTimeout(() => {
+          isTransitioning.current = false;
+        }, 750);
       }
     }
   }, [selectedExhibit, appBgColor]);
