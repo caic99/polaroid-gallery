@@ -377,10 +377,10 @@ const App: React.FC = () => {
         // Enable transition for the initial color switch
         isTransitioning.current = true;
         if (mainRef.current) {
-          mainRef.current.style.transition = 'background-color 0.7s ease-in-out';
+          mainRef.current.style.transition = 'background-color 0.7s ease-out';
           mainRef.current.style.backgroundColor = initialColor;
         }
-        document.body.style.transition = 'background-color 0.7s ease-in-out';
+        document.body.style.transition = 'background-color 0.7s ease-out';
         document.body.style.backgroundColor = initialColor;
         const metaThemeColor = document.querySelector("meta[name='theme-color']");
         if (metaThemeColor) metaThemeColor.setAttribute('content', initialColor);
@@ -397,7 +397,7 @@ const App: React.FC = () => {
   return (
     <div
       ref={mainRef}
-      className="min-h-screen flex flex-col font-sans transition-colors duration-700 ease-in-out"
+      className="min-h-screen flex flex-col font-sans transition-colors duration-700 ease-out"
       style={{
         // Only use React state for background color when in Home view.
         // In Detail view, we let the ref/scroll logic handle the background to avoid fighting.
