@@ -33,6 +33,7 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
 
   if (!asset) return null;
   const highResUrl = getOptimizedImageUrl(asset.url, 1200);
+  const thumbnailUrl = getOptimizedImageUrl(asset.url, 400);
 
   // Calculate Dimensions from Metadata or URL
   let width = asset.metadata?.dimensions?.width;
@@ -50,9 +51,6 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
   const finalWidth = width || 820;
   const finalHeight = height || 1000;
 
-  // Transparent SVG Placeholder for layout matching
-  const placeholderSrc = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${finalWidth} ${finalHeight}'%3E%3C/svg%3E`;
-
   return (
     <div className="w-full h-full flex flex-col items-center justify-center gap-4">
       {/*
@@ -61,13 +59,13 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
       */}
       <div className="grid place-items-center w-full">
 
-         {/* Placeholder - Transparent spacer to hold layout */}
+         {/* Thumbnail (Preview) - Shows while high-res loads */}
          <img
-           src={placeholderSrc}
+           src={thumbnailUrl}
            alt=""
            width={finalWidth}
            height={finalHeight}
-           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-0' : 'opacity-100'}`}
+           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-700 ease-in-out blur-sm ${loaded ? 'opacity-0' : 'opacity-100'}`}
          />
 
          {/* High Res Image (Overlay) - Fades in when loaded */}
@@ -79,7 +77,7 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
              onClick={(e) => {
                e.stopPropagation();
              }}
-             className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
+             className={`col-start-1 row-start-1 z-10 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
              loading="lazy"
              draggable="false"
              onLoad={() => setLoaded(true)}
