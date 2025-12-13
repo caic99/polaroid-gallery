@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --color-polaroid-red: #f5262e;
+  --color-polaroid-orange: #f78a22;
+  --color-polaroid-yellow: #fde024;
+  --color-polaroid-green: #279d52;
+  --color-polaroid-blue: #0073c2;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #0e0e1a;
+  transition: background-color 0.7s ease-out;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
