@@ -21,15 +21,3 @@ export const interpolateColor = (c1: string, c2: string, factor: number) => {
 };
 
 // Safe history update helper to prevent SecurityErrors in blob/sandboxed environments
-export const safeUpdateHistory = (method: 'push' | 'replace', path: string) => {
-  try {
-    if (method === 'push') {
-      window.history.pushState({}, '', path);
-    } else {
-      window.history.replaceState({}, '', path);
-    }
-  } catch (e) {
-    // Ignore history errors in restricted environments
-    console.debug('History API blocked:', e);
-  }
-};

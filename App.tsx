@@ -4,7 +4,7 @@ import { ExhibitItem } from './types';
 import ExhibitCard from './components/ExhibitCard';
 import GallerySlide from './components/GallerySlide';
 import { Loader2, AlertTriangle, ChevronLeft } from './components/Icons';
-import { interpolateColor, safeUpdateHistory } from './utils/helpers';
+import { interpolateColor } from './utils/helpers';
 import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
 
 // Component to handle scroll restoration for Home View
@@ -28,12 +28,12 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedExhibit, setSelectedExhibit] = useState<ExhibitItem | null>(null);
-  
+
   // Carousel State
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
-  
+
   // Scroll Position Management
   const homeScrollPosRef = useRef(0);
 
@@ -106,13 +106,13 @@ const App: React.FC = () => {
     if (selectedExhibit) {
       const galleryItems = selectedExhibit.gallery?.galleryItems?.filter(i => i.image?.asset) || [];
       const currentItem = galleryItems[currentIndex];
-      
+
       let newTitle = selectedExhibit.title;
       // Prepend image title if it exists and is different from the exhibit title
       if (currentItem?.title && currentItem.title.toLowerCase() !== newTitle.toLowerCase()) {
         newTitle = `${currentItem.title} - ${newTitle}`;
       }
-      
+
       document.title = `${newTitle} | ${baseTitle}`;
     } else {
       document.title = baseTitle;
@@ -130,7 +130,7 @@ const App: React.FC = () => {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedExhibit]); 
+  }, [selectedExhibit]);
 
   // Effect to scroll when index changes via navigation buttons
   useEffect(() => {
@@ -139,7 +139,7 @@ const App: React.FC = () => {
        const width = scrollContainerRef.current.clientWidth;
        const currentScroll = scrollContainerRef.current.scrollLeft;
        const targetScroll = width * currentIndex;
-       
+
        // Only scroll if the difference is significant (avoids micro-adjustments during manual scroll)
        if (Math.abs(currentScroll - targetScroll) > 20) {
          scrollContainerRef.current.scrollTo({
@@ -156,26 +156,26 @@ const App: React.FC = () => {
 
     setSelectedExhibit(exhibit);
     setCurrentIndex(initialIndex);
-    
+
     const params = new URLSearchParams(window.location.search);
     params.set('exhibit', exhibit.identifier);
     params.set('slide', initialIndex.toString());
-    
+
     const newRelativePath = `?${params.toString()}`;
-    safeUpdateHistory('push', newRelativePath);
+    window.history.pushState({}, '', newRelativePath);
   };
 
   const handleBack = () => {
     setSelectedExhibit(null);
     setCurrentIndex(0);
-    
+
     const params = new URLSearchParams(window.location.search);
     params.delete('exhibit');
     params.delete('slide');
     const newSearch = params.toString();
     const newRelativePath = newSearch ? `?${newSearch}` : window.location.pathname;
-    
-    safeUpdateHistory('push', newRelativePath);
+
+    window.history.pushState({}, '', newRelativePath);
   };
 
   // Pre-calculate colors for the current gallery
@@ -183,7 +183,7 @@ const App: React.FC = () => {
     if (!selectedExhibit) return [];
     const coverColor = selectedExhibit.coverImages?.[0]?.asset?.metadata?.palette?.dominant?.background || '#2c2435';
     // Map items to their palette color or fallback
-    return (selectedExhibit.gallery?.galleryItems?.filter(i => i.image?.asset) || []).map(item => 
+    return (selectedExhibit.gallery?.galleryItems?.filter(i => i.image?.asset) || []).map(item =>
        item.image?.asset?.metadata?.palette?.dominant?.background || coverColor
     );
   }, [selectedExhibit]);
@@ -191,16 +191,16 @@ const App: React.FC = () => {
   const handleScroll = () => {
     if (scrollContainerRef.current) {
       const { scrollLeft, clientWidth } = scrollContainerRef.current;
-      
+
       const index = Math.round(scrollLeft / clientWidth);
       if (index !== currentIndex) {
         setCurrentIndex(index);
-        
+
         if (selectedExhibit) {
            const params = new URLSearchParams(window.location.search);
            params.set('exhibit', selectedExhibit.identifier);
            params.set('slide', index.toString());
-           safeUpdateHistory('replace', `?${params.toString()}`);
+           window.history.replaceState({}, '', `?${params.toString()}`);
         }
       }
 
@@ -210,13 +210,13 @@ const App: React.FC = () => {
         const index1 = Math.floor(rawProgress);
         const index2 = Math.min(index1 + 1, maxIndex);
         const factor = rawProgress - index1;
-        
+
         const safeIndex1 = Math.max(0, Math.min(index1, maxIndex));
         const safeIndex2 = Math.max(0, Math.min(index2, maxIndex));
 
         const color1 = galleryColors[safeIndex1];
         const color2 = galleryColors[safeIndex2];
-        
+
         const newColor = interpolateColor(color1, color2, factor);
 
         if (mainRef.current) {
@@ -225,7 +225,7 @@ const App: React.FC = () => {
         }
         document.body.style.transition = 'none';
         document.body.style.backgroundColor = newColor;
-        
+
         const metaThemeColor = document.querySelector("meta[name='theme-color']");
         if (metaThemeColor) metaThemeColor.setAttribute('content', newColor);
       }
@@ -274,7 +274,7 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedExhibit, currentIndex]);
 
-  let appBgColor = '#0e0e1a'; 
+  let appBgColor = '#0e0e1a';
   let appTextColor = '#f4f4f5';
 
   if (selectedExhibit) {
@@ -283,19 +283,19 @@ const App: React.FC = () => {
     const coverAsset = selectedExhibit?.coverImages?.[0]?.asset;
     const fallbackPalette = coverAsset?.metadata?.palette;
     const displayPalette = currentPalette || fallbackPalette;
-    
+
     appTextColor = displayPalette?.dominant?.foreground || '#ffffff';
   }
 
   useEffect(() => {
     if (!selectedExhibit) {
       if (mainRef.current) {
-        mainRef.current.style.transition = ''; 
-        mainRef.current.style.backgroundColor = ''; 
+        mainRef.current.style.transition = '';
+        mainRef.current.style.backgroundColor = '';
       }
       document.body.style.transition = '';
       document.body.style.backgroundColor = appBgColor;
-      
+
       const metaThemeColor = document.querySelector("meta[name='theme-color']");
       if (metaThemeColor) metaThemeColor.setAttribute('content', appBgColor);
     } else {
@@ -309,15 +309,15 @@ const App: React.FC = () => {
         if (metaThemeColor) metaThemeColor.setAttribute('content', initialColor);
       }
     }
-  }, [selectedExhibit, appBgColor, galleryColors, currentIndex]); 
+  }, [selectedExhibit, appBgColor, galleryColors, currentIndex]);
 
   return (
-    <div 
+    <div
       ref={mainRef}
       className="min-h-screen flex flex-col font-sans transition-colors duration-700 ease-in-out"
-      style={{ 
-        backgroundColor: !selectedExhibit ? appBgColor : undefined, 
-        color: appTextColor 
+      style={{
+        backgroundColor: !selectedExhibit ? appBgColor : undefined,
+        color: appTextColor
       }}
     >
       <LayoutGroup>
@@ -330,7 +330,7 @@ const App: React.FC = () => {
            <div className="flex flex-col items-center justify-center h-[50vh] text-center px-6">
             <AlertTriangle className="w-8 h-8 text-polaroid-red mb-4" />
             <p className="text-zinc-400 mb-6">{error}</p>
-            <button 
+            <button
               onClick={() => window.location.reload()}
               className="px-6 py-2 bg-zinc-800 text-white rounded-full text-sm font-medium"
             >
@@ -341,7 +341,7 @@ const App: React.FC = () => {
           <AnimatePresence mode="wait">
             {selectedExhibit ? (
               // DETAIL VIEW
-              <motion.div 
+              <motion.div
                 key="detail"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -352,7 +352,7 @@ const App: React.FC = () => {
               >
                 <ScrollToTop />
 
-                <div 
+                <div
                   ref={scrollContainerRef}
                   onScroll={handleScroll}
                   className="flex-1 w-full overflow-x-auto snap-x snap-mandatory flex scrollbar-hide items-center"
@@ -367,7 +367,7 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="absolute inset-x-0 bottom-8 flex justify-center items-center gap-6 z-10 pointer-events-none">
-                  <button 
+                  <button
                     onClick={(e) => { e.stopPropagation(); prevSlide(); }}
                     disabled={currentIndex === 0}
                     className="pointer-events-auto p-2 rounded-full hover:bg-black/10 backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all cursor-pointer"
@@ -390,7 +390,7 @@ const App: React.FC = () => {
                     ))}
                   </div>
 
-                  <button 
+                  <button
                     onClick={(e) => { e.stopPropagation(); nextSlide(); }}
                     disabled={currentIndex === galleryItems.length - 1}
                     className="pointer-events-auto p-2 rounded-full hover:bg-black/10 backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all cursor-pointer"
@@ -402,7 +402,7 @@ const App: React.FC = () => {
               </motion.div>
             ) : (
               // HOME VIEW
-              <motion.div 
+              <motion.div
                 key="home"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -420,13 +420,13 @@ const App: React.FC = () => {
                       Explore fresh galleries curated by the Polaroid team.
                     </p>
                   </div>
-                  
+
                   <div className="flex flex-col gap-6">
                     {exhibits.map((exhibit, idx) => (
-                      <ExhibitCard 
-                        key={exhibit.identifier} 
-                        exhibit={exhibit} 
-                        onClick={handleExhibitClick} 
+                      <ExhibitCard
+                        key={exhibit.identifier}
+                        exhibit={exhibit}
+                        onClick={handleExhibitClick}
                         index={idx}
                       />
                     ))}
