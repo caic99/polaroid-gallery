@@ -328,9 +328,9 @@ const App: React.FC = () => {
       const currentItem = galleryItems[currentIndex];
       const itemTitle = currentItem?.title;
       if (itemTitle) {
-         document.title = `${baseTitle} | ${selectedExhibit.title} - ${itemTitle}`;
+        document.title = `${itemTitle} - ${selectedExhibit.title} | ${baseTitle}`;
       } else {
-         document.title = `${baseTitle} | ${selectedExhibit.title}`;
+        document.title = `${selectedExhibit.title} | ${baseTitle}`;
       }
     } else {
       document.title = baseTitle;
