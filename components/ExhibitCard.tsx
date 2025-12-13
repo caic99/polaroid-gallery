@@ -72,7 +72,7 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, index }) =>
   return (
     <div
       onClick={handleCardClick}
-      className="rounded-2xl p-6 cursor-pointer active:scale-[0.99] transition-all duration-500 border border-white/5 shadow-xl hover:shadow-2xl group"
+      className="rounded-2xl p-6 cursor-pointer border border-white/5 shadow-xl group"
       style={{
         backgroundColor: bgColor,
         color: txtColor
