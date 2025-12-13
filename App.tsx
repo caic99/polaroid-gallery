@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { fetchExhibits, getOptimizedImageUrl } from './services/api';
 import { ExhibitItem, GalleryItem } from './types';
 import ExhibitCard from './components/ExhibitCard';
-import Lightbox from './components/Lightbox';
 import { ArrowLeft, Loader2, AlertTriangle, ChevronLeft } from './components/Icons';
 
 // Helper to parse hex to rgb
@@ -28,7 +27,7 @@ const interpolateColor = (c1: string, c2: string, factor: number) => {
 };
 
 // Sub-component for individual gallery slides to handle loading state
-const GallerySlide = ({ item, onClick }: { item: GalleryItem, onClick: (item: GalleryItem) => void }) => {
+const GallerySlide = ({ item }: { item: GalleryItem }) => {
   const [loaded, setLoaded] = useState(false);
   const asset = item.image?.asset;
 
@@ -77,8 +76,10 @@ const GallerySlide = ({ item, onClick }: { item: GalleryItem, onClick: (item: Ga
              alt={item.title || "Gallery Item"}
              width={finalWidth}
              height={finalHeight}
-             onClick={() => onClick(item)}
-             className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl cursor-zoom-in transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
+             onClick={(e) => {
+               e.stopPropagation();
+             }}
+             className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-auto h-auto object-contain shadow-2xl transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
              loading="lazy"
              draggable="false"
              onLoad={() => setLoaded(true)}
@@ -100,7 +101,6 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedExhibit, setSelectedExhibit] = useState<ExhibitItem | null>(null);
-  const [selectedImage, setSelectedImage] = useState<GalleryItem | null>(null);
 
   // Carousel State
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -306,8 +306,8 @@ const App: React.FC = () => {
 
   // Keyboard Navigation
   useEffect(() => {
-    // Only active if we are in detail view and lightbox is not open
-    if (!selectedExhibit || selectedImage) return;
+    // Only active if we are in detail view
+    if (!selectedExhibit) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') {
@@ -319,7 +319,7 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedExhibit, selectedImage, currentIndex]);
+  }, [selectedExhibit, currentIndex]);
 
   // Dynamic Document Title
   useEffect(() => {
@@ -417,17 +417,10 @@ const App: React.FC = () => {
           <>
             {selectedExhibit ? (
               // DETAIL VIEW: Horizontal Gallery
-              <div className="flex-1 relative flex flex-col">
-
-                {/* Floating Back Button */}
-                <button
-                  onClick={handleBack}
-                  className="absolute top-6 left-6 md:top-8 md:left-8 z-50 p-3 -ml-3 rounded-full hover:bg-white/10 transition-all opacity-80 hover:opacity-100"
-                  style={{ color: 'inherit' }}
-                  aria-label="Back to gallery"
-                >
-                  <ArrowLeft className="w-8 h-8 md:w-10 md:h-10" />
-                </button>
+              <div
+                className="flex-1 relative flex flex-col cursor-zoom-out"
+                onClick={handleBack}
+              >
 
                 {/* Horizontal Scroll Container */}
                 <div
@@ -438,7 +431,7 @@ const App: React.FC = () => {
                 >
                     {galleryItems.map((item, idx) => (
                         <div key={idx} className="min-w-full w-full h-full snap-center flex flex-col items-center justify-center p-4 md:p-8 relative">
-                           <GallerySlide item={item} onClick={setSelectedImage} />
+                           <GallerySlide item={item} />
                         </div>
                     ))}
                 </div>
@@ -447,7 +440,10 @@ const App: React.FC = () => {
                 <div className="absolute inset-x-0 bottom-8 flex justify-center items-center gap-6 z-10 pointer-events-none">
                   {/* Left Button */}
                   <button
-                    onClick={prevSlide}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      prevSlide();
+                    }}
                     disabled={currentIndex === 0}
                     className="pointer-events-auto p-2 rounded-full hover:bg-black/10 backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all"
                     style={{ color: 'inherit' }}
@@ -460,7 +456,10 @@ const App: React.FC = () => {
                     {galleryItems.map((_, idx) => (
                       <button
                         key={idx}
-                        onClick={() => scrollToIndex(idx)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          scrollToIndex(idx);
+                        }}
                         className={`w-2 h-2 rounded-full transition-all duration-300 ${
                           idx === currentIndex ? 'scale-125' : 'opacity-40 hover:opacity-60'
                         }`}
@@ -472,7 +471,10 @@ const App: React.FC = () => {
 
                   {/* Right Button */}
                   <button
-                    onClick={nextSlide}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      nextSlide();
+                    }}
                     disabled={currentIndex === galleryItems.length - 1}
                     className="pointer-events-auto p-2 rounded-full hover:bg-black/10 backdrop-blur-sm disabled:opacity-0 disabled:pointer-events-none transition-all"
                     style={{ color: 'inherit' }}
@@ -512,14 +514,6 @@ const App: React.FC = () => {
           </>
         )}
       </main>
-
-      {/* Lightbox Overlay */}
-      {selectedImage && (
-        <Lightbox
-          item={selectedImage}
-          onClose={() => setSelectedImage(null)}
-        />
-      )}
     </div>
   );
 };
