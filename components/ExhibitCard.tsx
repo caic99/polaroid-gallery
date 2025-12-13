@@ -16,7 +16,6 @@ const CardImage = ({ src }: { src: string }) => {
       <img
         src={src}
         alt=""
-        loading="lazy"
         className={`w-full h-full object-cover transition-opacity duration-700 ${loaded ? 'opacity-100' : 'opacity-0'}`}
         onLoad={() => setLoaded(true)}
       />
