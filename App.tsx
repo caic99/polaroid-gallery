@@ -65,19 +65,16 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
            alt=""
            width={finalWidth}
            height={finalHeight}
-           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-700 ease-in-out blur-sm ${loaded ? 'opacity-0' : 'opacity-100'}`}
+           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-300 ease-in-out ${loaded ? 'opacity-0' : 'opacity-100'}`}
          />
 
          {/* High Res Image (Overlay) - Fades in when loaded */}
          <img
              src={highResUrl}
-             alt={item.title || "Gallery Item"}
+             alt={item.title}
              width={finalWidth}
              height={finalHeight}
-             onClick={(e) => {
-               e.stopPropagation();
-             }}
-             className={`col-start-1 row-start-1 z-10 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
+             className={`col-start-1 row-start-1 z-10 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-300 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
              loading="lazy"
              draggable="false"
              onLoad={() => setLoaded(true)}
