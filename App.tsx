@@ -59,22 +59,22 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
       */}
       <div className="grid place-items-center w-full">
 
-         {/* Thumbnail (Preview) - Shows while high-res loads */}
+         {/* Thumbnail (Preview) - Remains visible to prevent background flash */}
          <img
            src={thumbnailUrl}
            alt=""
            width={finalWidth}
            height={finalHeight}
-           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-300 ease-in-out ${loaded ? 'opacity-0' : 'opacity-100'}`}
+           className="col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain"
          />
 
          {/* High Res Image (Overlay) - Fades in when loaded */}
          <img
              src={highResUrl}
-             alt={item.title}
+             alt={item.title || "Gallery Item"}
              width={finalWidth}
              height={finalHeight}
-             className={`col-start-1 row-start-1 z-10 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-300 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
+             className={`col-start-1 row-start-1 z-10 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
              loading="lazy"
              draggable="false"
              onLoad={() => setLoaded(true)}
@@ -84,7 +84,7 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
       {/* Meta Info Row */}
       <div className="flex items-center justify-center mt-2 px-4 text-center" style={{ color: 'inherit' }}>
           <span className="font-medium text-lg tracking-wide drop-shadow-md opacity-90 line-clamp-2">
-              {item.title || "Untitled"}
+              {item.title}
           </span>
       </div>
     </div>
