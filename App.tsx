@@ -43,7 +43,15 @@ const interpolateColor = (c1: string, c2: string, factor: number) => {
 // Sub-component for individual gallery slides to handle loading state
 const GallerySlide = ({ item }: { item: GalleryItem }) => {
   const [loaded, setLoaded] = useState(false);
+  const [showThumbnail, setShowThumbnail] = useState(true);
   const asset = item.image?.asset;
+
+  useEffect(() => {
+    if (loaded) {
+      const timer = setTimeout(() => setShowThumbnail(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [loaded]);
 
   if (!asset) return null;
   const highResUrl = getOptimizedImageUrl(asset.url, 1200);
@@ -73,13 +81,13 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
       */}
       <div className="grid place-items-center w-full">
 
-         {/* Thumbnail (Preview) - Remains visible to prevent background flash */}
+         {/* Thumbnail (Preview) - Fades out after delay */}
          <img
            src={thumbnailUrl}
            alt=""
            width={finalWidth}
            height={finalHeight}
-           className="col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain"
+           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-700 linear ${showThumbnail ? 'opacity-100' : 'opacity-0'}`}
          />
 
          {/* High Res Image (Overlay) - Fades in when loaded */}
@@ -88,7 +96,7 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
              alt={item.title || "Gallery Item"}
              width={finalWidth}
              height={finalHeight}
-             className={`col-start-1 row-start-1 z-10 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'}`}
+             className={`col-start-1 row-start-1 z-10 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-700 linear ${loaded ? 'opacity-100' : 'opacity-0'}`}
              loading="lazy"
              draggable="false"
              onLoad={() => setLoaded(true)}
