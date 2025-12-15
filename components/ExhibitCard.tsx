@@ -12,7 +12,7 @@ const CardImage = ({ src }: { src: string }) => {
   const [loaded, setLoaded] = useState(false);
 
   return (
-    <div className="relative aspect-[41/50] w-full cursor-zoom-in">
+    <div className="relative aspect-[41/50] w-full bg-white cursor-zoom-in">
       <div className={`absolute top-[6%] left-[6%] right-[5%] bottom-[20%] bg-[#567d90] transition-opacity duration-1500 ${loaded ? 'opacity-0' : ''}`} />
       <img
         src={src}
@@ -98,7 +98,7 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSub
       <div className="w-full max-w-5xl ml-auto">
         <div
           className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-6 px-6"
-          onClick={(e) => e.stopPropagation()} // allow horizontal scroll without triggering card click
+          // onClick={(e) => e.stopPropagation()} // allow horizontal scroll without triggering card click
         >
           {displayImages.map((img, i) => {
           const asset = img.asset;
