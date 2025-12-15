@@ -639,7 +639,7 @@ const App: React.FC = () => {
                       </div>
 
                       {/* Single Tab Pill: right-aligned; becomes fixed after scrolling so it stays visible */}
-                      <div ref={tabsAnchorRef} className="max-w-full w-full shrink-0 flex justify-center sm:w-fit sm:justify-end">
+                      <div ref={tabsAnchorRef} className="max-w-full w-full shrink-0 flex justify-start sm:w-fit sm:justify-end">
                         {tabsPinned ? (
                           <div
                             aria-hidden
@@ -681,11 +681,11 @@ const App: React.FC = () => {
                     </div>
 
                     {homeTab === 'weekly' ? (
-                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4 mx-auto text-center text-balance">
+                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4 mx-0 sm:ml-auto sm:mr-0 text-left sm:text-right text-balance">
                         Explore fresh galleries curated by the Polaroid team.
                       </p>
                     ) : (
-                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4 mx-auto text-center text-balance">
+                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4 mx-0 sm:ml-auto sm:mr-0 text-left sm:text-right text-balance">
                         Browse recent Creative Call submissions.
                       </p>
                     )}
