@@ -619,9 +619,9 @@ const App: React.FC = () => {
             ) : (
               // HOME VIEW: Vertical Stack
               <div className="container mx-auto px-4 pt-12 pb-8 md:pt-20 md:pb-12">
-                <div className="max-w-5xl mx-auto">
+                  <div className="max-w-5xl mx-auto">
                   {/* Immersive Header */}
-                  <div className="mb-4 md:mb-6">
+                  <div className="mb-4 md:mb-6 px-3">
                     {/* Title row (pill aligned with main title) */}
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
                       <div className="min-w-0 flex items-center gap-3">
