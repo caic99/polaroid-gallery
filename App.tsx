@@ -636,7 +636,7 @@ const App: React.FC = () => {
                         ) : null}
                         <div
                           ref={tabsPillRef}
-                          className={`inline-flex flex-nowrap items-center justify-end gap-2 rounded-full bg-white/5 backdrop-blur-sm p-1 max-w-full w-fit ${
+                          className={`inline-flex flex-nowrap items-center justify-end gap-2 rounded-full bg-white/5 backdrop-blur-lg p-1 max-w-full w-fit ${
                             tabsPinned ? 'fixed top-2 z-50' : ''
                           }`}
                           style={
