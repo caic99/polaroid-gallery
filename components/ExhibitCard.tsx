@@ -13,11 +13,11 @@ const CardImage = ({ src }: { src: string }) => {
 
   return (
     <div className="relative aspect-[41/50] w-full cursor-zoom-in">
-      <div className={`absolute top-[6%] left-[6%] right-[5%] bottom-[20%] bg-[#567d90] transition-opacity duration-1500 ${loaded ? 'opacity-0' : 'opacity-100'}`} />
+      <div className={`absolute top-[6%] left-[6%] right-[5%] bottom-[20%] bg-[#567d90] transition-opacity duration-1500 ${loaded ? 'opacity-0' : ''}`} />
       <img
         src={src}
         alt=""
-        className={`w-full h-full object-cover transition-opacity duration-2000 cursor-zoom-in ${loaded ? 'opacity-100 contrast-100' : 'opacity-0 contrast-200'}`}
+        className={`w-full h-full object-cover transition-opacity duration-2000 cursor-zoom-in ${loaded ? '' : 'opacity-0 contrast-200'}`}
         onLoad={() => setLoaded(true)}
       />
     </div>
