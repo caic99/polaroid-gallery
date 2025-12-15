@@ -78,3 +78,29 @@ export interface APIResponse<T> {
   ms: number;
   query: string;
 }
+
+export interface SubmissionGallery {
+  title?: string;
+  count?: number;
+  galleryItems?: GalleryItem[];
+}
+
+export interface SubmissionItem {
+  identifier: string;
+  title: string;
+  subtitle?: string;
+  beginAt?: string;
+  endAt?: string;
+  isOngoing?: boolean;
+  heroImage?: SanityImage;
+  submissionGallery?: SubmissionGallery;
+  allApprovedSubmissionsGallery?: SubmissionGallery;
+  overview?: Array<{
+    _type?: string;
+    paragraph?: string;
+    subtitle?: string;
+    size?: string;
+    title?: string;
+    images?: SanityImage[];
+  }>;
+}

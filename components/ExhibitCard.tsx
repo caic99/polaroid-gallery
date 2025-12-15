@@ -5,7 +5,7 @@ import { getOptimizedImageUrl } from '../services/api';
 interface ExhibitCardProps {
   exhibit: ExhibitItem;
   onClick: (exhibit: ExhibitItem, initialIndex?: number) => void;
-  index: number;
+  fallbackSubtitle?: string;
 }
 
 const CardImage = ({ src }: { src: string }) => {
@@ -24,7 +24,7 @@ const CardImage = ({ src }: { src: string }) => {
   );
 };
 
-const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, index }) => {
+const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSubtitle = 'Weekly 8 Gallery' }) => {
   // Collect up to 8 images to display in the card preview
   const allImages = [];
 
@@ -84,7 +84,7 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, index }) =>
           className="text-xs font-medium uppercase tracking-wider opacity-70 transition-colors"
           style={{ color: 'inherit' }}
         >
-          {exhibit.subtitle || "Weekly 8 Gallery"}
+          {exhibit.subtitle || fallbackSubtitle}
         </span>
         <h3
           className="text-2xl md:text-3xl font-bold leading-tight transition-colors"

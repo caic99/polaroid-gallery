@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { fetchExhibits, getOptimizedImageUrl } from './services/api';
+import { fetchCreativeCalls, fetchExhibits, getOptimizedImageUrl } from './services/api';
 import { ExhibitItem, GalleryItem, PortableTextBlock } from './types';
 import ExhibitCard from './components/ExhibitCard';
-import { ArrowLeft, Loader2, AlertTriangle, ChevronLeft } from './components/Icons';
+import { Loader2, AlertTriangle, ChevronLeft } from './components/Icons';
 
 // Helper to parse hex to rgb
 const hexToRgb = (hex: string) => {
   const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-  hex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
+  hex = hex.replace(shorthandRegex, (match, r, g, b) => (void match, r + r + g + g + b + b));
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result ? {
     r: parseInt(result[1], 16),
@@ -120,15 +120,25 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
 
 const App: React.FC = () => {
   const [exhibits, setExhibits] = useState<ExhibitItem[]>([]);
+  const [creativeCalls, setCreativeCalls] = useState<ExhibitItem[]>([]);
+  const [homeTab, setHomeTab] = useState<'weekly' | 'creative'>('weekly');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [creativeCallsError, setCreativeCallsError] = useState<string | null>(null);
   const [selectedExhibit, setSelectedExhibit] = useState<ExhibitItem | null>(null);
+
+  // Home tab pill pinning (keep always visible after scrolling)
+  const tabsAnchorRef = useRef<HTMLDivElement>(null);
+  const tabsPillRef = useRef<HTMLDivElement>(null);
+  const [tabsPinned, setTabsPinned] = useState(false);
+  const [tabsPinnedStyle, setTabsPinnedStyle] = useState<{ right: number } | null>(null);
+  const [tabsPlaceholderHeight, setTabsPlaceholderHeight] = useState(0);
+  const [tabsPlaceholderWidth, setTabsPlaceholderWidth] = useState(0);
 
   // Carousel State
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
-  const isInternalNavigation = useRef(false);
   const isTransitioning = useRef(false);
 
   // Sync state from URL parameters
@@ -163,11 +173,29 @@ const App: React.FC = () => {
     const loadData = async () => {
       setLoading(true);
       setError(null);
+      setCreativeCallsError(null);
       try {
-        const data = await fetchExhibits();
-        setExhibits(data);
-        // Check URL for deep linking after data load
-        syncStateFromUrl(data);
+        const [weeklyResult, creativeResult] = await Promise.allSettled([
+          fetchExhibits(),
+          fetchCreativeCalls(),
+        ]);
+
+        if (weeklyResult.status === 'fulfilled') {
+          setExhibits(weeklyResult.value);
+        } else {
+          setError('Unable to retrieve gallery data.');
+        }
+
+        if (creativeResult.status === 'fulfilled') {
+          setCreativeCalls(creativeResult.value);
+        } else {
+          setCreativeCalls([]);
+          setCreativeCallsError('Unable to retrieve Creative Call data.');
+        }
+
+        const weeklyItems = weeklyResult.status === 'fulfilled' ? weeklyResult.value : [];
+        const creativeItems = creativeResult.status === 'fulfilled' ? creativeResult.value : [];
+        syncStateFromUrl([...weeklyItems, ...creativeItems]);
       } catch (err) {
         setError("Unable to retrieve gallery data.");
       } finally {
@@ -193,13 +221,14 @@ const App: React.FC = () => {
   // Effect to handle PopState with fresh data
   useEffect(() => {
     const handlePopState = () => {
-      if (exhibits.length > 0) {
-        syncStateFromUrl(exhibits);
+      const allItems = [...exhibits, ...creativeCalls];
+      if (allItems.length > 0) {
+        syncStateFromUrl(allItems);
       }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [exhibits, syncStateFromUrl]);
+  }, [exhibits, creativeCalls, syncStateFromUrl]);
 
   // Effect to scroll to currentIndex when exhibit opens or index changes
   useEffect(() => {
@@ -351,7 +380,7 @@ const App: React.FC = () => {
 
   // Dynamic Document Title
   useEffect(() => {
-    const baseTitle = "Weekly 8 by Polaroid";
+    const baseTitle = "Polaroid App Selections";
     if (selectedExhibit) {
       const currentItem = galleryItems[currentIndex];
       const itemTitle = currentItem?.title;
@@ -421,6 +450,59 @@ const App: React.FC = () => {
   }, [selectedExhibit, appBgColor]);
   // Dependency on appBgColor ensures home page updates if we ever change default home color logic
 
+  const faviconHref = React.useMemo(() => {
+    if (typeof document === 'undefined') return '';
+    const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
+    return link?.href || '';
+  }, []);
+
+  // Keep the tab pill always visible in Home view.
+  useEffect(() => {
+    if (selectedExhibit) return;
+
+    const topOffsetPx = 8; // matches `top-2`
+
+    const measure = () => {
+      if (!tabsPillRef.current) return;
+      const pillWidth = tabsPillRef.current.offsetWidth;
+      const pillHeight = tabsPillRef.current.offsetHeight;
+      setTabsPlaceholderHeight(pillHeight);
+      setTabsPlaceholderWidth(pillWidth);
+
+      if (tabsPinned && tabsAnchorRef.current) {
+        const anchorRect = tabsAnchorRef.current.getBoundingClientRect();
+        // Keep the fixed pill aligned to the anchor's right edge.
+        setTabsPinnedStyle({ right: window.innerWidth - anchorRect.right });
+      }
+    };
+
+    const onScroll = () => {
+      if (!tabsAnchorRef.current) return;
+      const anchorRect = tabsAnchorRef.current.getBoundingClientRect();
+      const shouldPin = anchorRect.top <= topOffsetPx;
+
+      if (shouldPin) {
+        if (!tabsPinned) {
+          setTabsPinned(true);
+          setTabsPinnedStyle({ right: window.innerWidth - anchorRect.right });
+        }
+      } else if (tabsPinned) {
+        setTabsPinned(false);
+        setTabsPinnedStyle(null);
+      }
+    };
+
+    measure();
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', measure);
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', measure);
+    };
+  }, [selectedExhibit, tabsPinned]);
+
   return (
     <div
       ref={mainRef}
@@ -434,7 +516,7 @@ const App: React.FC = () => {
     >
 
       {/* Main Content Area */}
-      <main className="flex-grow flex flex-col overflow-hidden relative">
+      <main className="flex-grow flex flex-col relative">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-[60vh] text-zinc-500 gap-4">
             <Loader2 className="w-8 h-8 text-white animate-spin" />
@@ -526,24 +608,103 @@ const App: React.FC = () => {
               <div className="container mx-auto px-4 pt-12 pb-8 md:pt-20 md:pb-12">
                 <div className="max-w-7xl mx-auto">
                   {/* Immersive Header */}
-                  <div className="mb-10 md:mb-14">
-                    <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-white mb-4 leading-none">
-                      Weekly 8 by Polaroid
-                    </h1>
-                    <p className="text-zinc-400 text-lg md:text-2xl font-medium max-w-2xl">
-                      Explore fresh galleries curated by the Polaroid team.
-                    </p>
+                  <div className="mb-4 md:mb-6">
+                    <div className="grid grid-cols-[1fr_auto] items-start gap-6">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-3">
+                          {faviconHref ? (
+                            <img
+                              src={faviconHref}
+                              alt="Polaroid"
+                              className="w-6 h-6 md:w-7 md:h-7"
+                              draggable={false}
+                            />
+                          ) : null}
+                          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white leading-tight">
+                            Polaroid App Selections
+                          </h1>
+                        </div>
+
+                        {homeTab === 'weekly' ? (
+                          <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4">
+                            Explore fresh galleries curated by the Polaroid team.
+                          </p>
+                        ) : (
+                          <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4">
+                            Browse recent Creative Call submissions.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Single Tab Pill: right-aligned; becomes fixed after scrolling so it stays visible */}
+                      <div ref={tabsAnchorRef} className="justify-self-end self-start max-w-full w-fit">
+                        {tabsPinned ? (
+                          <div
+                            aria-hidden
+                            className="pointer-events-none"
+                            style={{ height: tabsPlaceholderHeight, width: tabsPlaceholderWidth }}
+                          />
+                        ) : null}
+                        <div
+                          ref={tabsPillRef}
+                          className={`inline-flex flex-nowrap items-center justify-end gap-2 rounded-full bg-white/5 backdrop-blur-lg p-1 max-w-full w-fit ${
+                            tabsPinned ? 'fixed top-2 z-50' : ''
+                          }`}
+                          style={
+                            tabsPinned && tabsPinnedStyle
+                              ? { right: tabsPinnedStyle.right, left: 'auto' }
+                              : undefined
+                          }
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setHomeTab('weekly')}
+                            className={`px-4 py-2 rounded-full text-base sm:text-lg md:text-2xl font-semibold transition-colors ${
+                              homeTab === 'weekly' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200'
+                            } whitespace-nowrap shrink-0`}
+                          >
+                            Weekly 8
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setHomeTab('creative')}
+                            className={`px-4 py-2 rounded-full text-base sm:text-lg md:text-2xl font-semibold transition-colors ${
+                              homeTab === 'creative' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200'
+                            } whitespace-nowrap shrink-0`}
+                          >
+                            Creative Call
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex flex-col gap-6">
-                    {exhibits.map((exhibit, idx) => (
-                      <ExhibitCard
-                        key={exhibit.identifier}
-                        exhibit={exhibit}
-                        onClick={handleExhibitClick}
-                        index={idx}
-                      />
-                    ))}
+                  <div className="mt-8 md:mt-10">
+                    {homeTab === 'weekly' ? (
+                      <div className="flex flex-col gap-6">
+                        {exhibits.map((exhibit) => (
+                          <ExhibitCard
+                            key={exhibit.identifier}
+                            exhibit={exhibit}
+                            onClick={handleExhibitClick}
+                            fallbackSubtitle="Weekly 8 Gallery"
+                          />
+                        ))}
+                      </div>
+                    ) : creativeCallsError ? (
+                      <p className="text-zinc-500 text-sm md:text-base">{creativeCallsError}</p>
+                    ) : (
+                      <div className="flex flex-col gap-6">
+                        {creativeCalls.map((call) => (
+                          <ExhibitCard
+                            key={call.identifier}
+                            exhibit={call}
+                            onClick={handleExhibitClick}
+                            fallbackSubtitle="Creative Call"
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
