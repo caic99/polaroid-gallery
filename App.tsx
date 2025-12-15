@@ -606,7 +606,7 @@ const App: React.FC = () => {
             ) : (
               // HOME VIEW: Vertical Stack
               <div className="container mx-auto px-4 pt-12 pb-8 md:pt-20 md:pb-12">
-                <div className="max-w-7xl mx-auto">
+                <div className="max-w-5xl mx-auto">
                   {/* Immersive Header */}
                   <div className="mb-4 md:mb-6">
                     <div className="grid grid-cols-[1fr_auto] items-start gap-6">
@@ -647,7 +647,7 @@ const App: React.FC = () => {
                         ) : null}
                         <div
                           ref={tabsPillRef}
-                          className={`inline-flex flex-nowrap items-center justify-end gap-2 rounded-full bg-white/5 backdrop-blur-lg p-1 max-w-full w-fit ${
+                          className={`inline-flex flex-nowrap items-center justify-end gap-2 rounded-full bg-white/5 backdrop-blur-sm p-1 max-w-full w-fit ${
                             tabsPinned ? 'fixed top-2 z-50' : ''
                           }`}
                           style={

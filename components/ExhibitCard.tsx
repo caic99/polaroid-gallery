@@ -12,12 +12,12 @@ const CardImage = ({ src }: { src: string }) => {
   const [loaded, setLoaded] = useState(false);
 
   return (
-    <div className="relative aspect-[41/50] w-full overflow-hidden bg-white">
+    <div className="relative aspect-[41/50] w-full overflow-hidden bg-white cursor-zoom-in">
       <div className={`absolute top-[6%] left-[6%] right-[5%] bottom-[20%] bg-[#567d90] transition-opacity duration-1500 ${loaded ? 'opacity-0' : 'opacity-100'}`} />
       <img
         src={src}
         alt=""
-        className={`w-full h-full object-cover transition-opacity duration-2000 ${loaded ? 'opacity-100 contrast-100' : 'opacity-0 contrast-200'}`}
+        className={`w-full h-full object-cover transition-opacity duration-2000 cursor-zoom-in ${loaded ? 'opacity-100 contrast-100' : 'opacity-0 contrast-200'}`}
         onLoad={() => setLoaded(true)}
       />
     </div>
@@ -72,7 +72,7 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSub
   return (
     <div
       onClick={handleCardClick}
-      className="rounded-2xl p-6 cursor-pointer border border-white/5 shadow-xl group"
+      className="rounded-2xl p-6 cursor-pointer shadow-xl group"
       style={{
         backgroundColor: bgColor,
         color: txtColor
@@ -94,16 +94,13 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSub
         </h3>
       </div>
 
-      {/* Scrollable Row of Photos */}
-      <div
-        className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-6 px-6"
-        onClick={(e) => e.stopPropagation()} // Allow scrolling without triggering card click? No, we want card click on background.
-        // Actually, if we click and drag, we don't want to trigger card click.
-        // But if we click an image, we want to trigger image click.
-        // The image click handler has e.stopPropagation().
-        // The container scroll shouldn't trigger card click.
-      >
-        {displayImages.map((img, i) => {
+      {/* Scrollable Row of Photos (limit visible width so thumbnails stay larger) */}
+      <div className="w-full max-w-5xl ml-auto">
+        <div
+          className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mr-6"
+          onClick={(e) => e.stopPropagation()} // allow horizontal scroll without triggering card click
+        >
+          {displayImages.map((img, i) => {
           const asset = img.asset;
           const url = asset ? getOptimizedImageUrl(asset.url, 400) : null;
 
@@ -116,7 +113,7 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSub
           const targetIndex = (galleryIndex !== undefined && galleryIndex > -1) ? galleryIndex : 0;
 
           if (!url) {
-            return <div key={i} className="flex-shrink-0 w-24 md:w-32 aspect-[41/50] bg-white/5" />;
+            return <div key={i} className="flex-shrink-0 w-28 md:w-36 lg:w-44 aspect-[41/50] bg-white/5" />;
           }
 
           return (
@@ -126,12 +123,13 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSub
                 e.stopPropagation(); // Prevent card click
                 onClick(exhibit, targetIndex);
               }}
-              className="flex-shrink-0 w-24 md:w-32 hover:opacity-80 transition-opacity"
+              className="flex-shrink-0 w-28 md:w-36 lg:w-44 hover:opacity-80 transition-opacity cursor-zoom-in"
             >
               <CardImage src={url} />
             </div>
           );
-        })}
+          })}
+        </div>
       </div>
     </div>
   );
