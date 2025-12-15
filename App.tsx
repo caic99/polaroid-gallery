@@ -660,7 +660,7 @@ const App: React.FC = () => {
                             type="button"
                             onClick={() => setHomeTab('weekly')}
                             className={`px-4 py-2 rounded-full text-base sm:text-lg md:text-2xl font-semibold transition-colors ${
-                              homeTab === 'weekly' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200'
+                              homeTab === 'weekly' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200 cursor-pointer'
                             } whitespace-nowrap shrink-0`}
                           >
                             Weekly 8
@@ -669,7 +669,7 @@ const App: React.FC = () => {
                             type="button"
                             onClick={() => setHomeTab('creative')}
                             className={`px-4 py-2 rounded-full text-base sm:text-lg md:text-2xl font-semibold transition-colors ${
-                              homeTab === 'creative' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200'
+                              homeTab === 'creative' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200 cursor-pointer'
                             } whitespace-nowrap shrink-0`}
                           >
                             Creative Call
