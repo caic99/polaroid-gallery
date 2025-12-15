@@ -609,35 +609,24 @@ const App: React.FC = () => {
                 <div className="max-w-5xl mx-auto">
                   {/* Immersive Header */}
                   <div className="mb-4 md:mb-6">
-                    <div className="grid grid-cols-[1fr_auto] items-start gap-6">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-3">
-                          {faviconHref ? (
-                            <img
-                              src={faviconHref}
-                              alt="Polaroid"
-                              className="w-6 h-6 md:w-7 md:h-7"
-                              draggable={false}
-                            />
-                          ) : null}
-                          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white leading-tight">
-                            Polaroid App Selections
-                          </h1>
-                        </div>
-
-                        {homeTab === 'weekly' ? (
-                          <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4">
-                            Explore fresh galleries curated by the Polaroid team.
-                          </p>
-                        ) : (
-                          <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4">
-                            Browse recent Creative Call submissions.
-                          </p>
-                        )}
+                    {/* Title row (pill aligned with main title) */}
+                    <div className="flex items-center justify-between gap-6">
+                      <div className="min-w-0 flex items-center gap-3">
+                        {faviconHref ? (
+                          <img
+                            src={faviconHref}
+                            alt="Polaroid"
+                            className="w-6 h-6 md:w-7 md:h-7"
+                            draggable={false}
+                          />
+                        ) : null}
+                        <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white leading-tight">
+                          Polaroid App Selections
+                        </h1>
                       </div>
 
                       {/* Single Tab Pill: right-aligned; becomes fixed after scrolling so it stays visible */}
-                      <div ref={tabsAnchorRef} className="justify-self-end self-start max-w-full w-fit">
+                      <div ref={tabsAnchorRef} className="max-w-full w-fit shrink-0">
                         {tabsPinned ? (
                           <div
                             aria-hidden
@@ -677,6 +666,16 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     </div>
+
+                    {homeTab === 'weekly' ? (
+                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4">
+                        Explore fresh galleries curated by the Polaroid team.
+                      </p>
+                    ) : (
+                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4">
+                        Browse recent Creative Call submissions.
+                      </p>
+                    )}
                   </div>
 
                   <div className="mt-8 md:mt-10">
