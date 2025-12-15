@@ -668,11 +668,11 @@ const App: React.FC = () => {
                     </div>
 
                     {homeTab === 'weekly' ? (
-                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4">
+                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4 ml-auto text-right">
                         Explore fresh galleries curated by the Polaroid team.
                       </p>
                     ) : (
-                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4">
+                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4 ml-auto text-right">
                         Browse recent Creative Call submissions.
                       </p>
                     )}
