@@ -17,6 +17,8 @@ const CardImage = ({ src }: { src: string }) => {
       <img
         src={src}
         alt=""
+        decoding="async"
+        loading="lazy"
         className={`w-full h-full object-cover transition-opacity duration-2000 cursor-zoom-in ${loaded ? '' : 'opacity-0 contrast-200'}`}
         onLoad={() => setLoaded(true)}
       />
