@@ -460,6 +460,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (selectedExhibit) return;
 
+    const pinningEnabled = () => window.matchMedia('(min-width: 768px)').matches;
+
     const topOffsetPx = 8; // matches `top-2`
 
     const measure = () => {
@@ -469,6 +471,12 @@ const App: React.FC = () => {
       setTabsPlaceholderHeight(pillHeight);
       setTabsPlaceholderWidth(pillWidth);
 
+      if (!pinningEnabled()) {
+        if (tabsPinned) setTabsPinned(false);
+        setTabsPinnedStyle(null);
+        return;
+      }
+
       if (tabsPinned && tabsAnchorRef.current) {
         const anchorRect = tabsAnchorRef.current.getBoundingClientRect();
         // Keep the fixed pill aligned to the anchor's right edge.
@@ -477,6 +485,11 @@ const App: React.FC = () => {
     };
 
     const onScroll = () => {
+      if (!pinningEnabled()) {
+        if (tabsPinned) setTabsPinned(false);
+        setTabsPinnedStyle(null);
+        return;
+      }
       if (!tabsAnchorRef.current) return;
       const anchorRect = tabsAnchorRef.current.getBoundingClientRect();
       const shouldPin = anchorRect.top <= topOffsetPx;
@@ -610,7 +623,7 @@ const App: React.FC = () => {
                   {/* Immersive Header */}
                   <div className="mb-4 md:mb-6">
                     {/* Title row (pill aligned with main title) */}
-                    <div className="flex items-center justify-between gap-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
                       <div className="min-w-0 flex items-center gap-3">
                         {faviconHref ? (
                           <img
@@ -626,7 +639,7 @@ const App: React.FC = () => {
                       </div>
 
                       {/* Single Tab Pill: right-aligned; becomes fixed after scrolling so it stays visible */}
-                      <div ref={tabsAnchorRef} className="max-w-full w-fit shrink-0">
+                      <div ref={tabsAnchorRef} className="max-w-full w-full shrink-0 flex justify-center sm:w-fit sm:justify-end">
                         {tabsPinned ? (
                           <div
                             aria-hidden
@@ -636,7 +649,7 @@ const App: React.FC = () => {
                         ) : null}
                         <div
                           ref={tabsPillRef}
-                          className={`inline-flex flex-nowrap items-center justify-end gap-2 rounded-full bg-white/5 backdrop-blur-lg p-1 max-w-full w-fit ${
+                          className={`inline-flex flex-row flex-nowrap items-center justify-center gap-2 rounded-full bg-white/5 backdrop-blur-lg p-1 max-w-full w-fit ${
                             tabsPinned ? 'fixed top-2 z-50' : ''
                           }`}
                           style={
@@ -648,18 +661,18 @@ const App: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setHomeTab('weekly')}
-                            className={`px-4 py-2 rounded-full text-base sm:text-lg md:text-2xl font-semibold transition-colors ${
+                            className={`px-3 py-1.5 rounded-full text-sm sm:px-4 sm:py-2 sm:text-lg md:text-2xl font-semibold transition-colors ${
                               homeTab === 'weekly' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200 cursor-pointer'
-                            } whitespace-nowrap shrink-0`}
+                            } whitespace-nowrap text-center shrink-0`}
                           >
                             Weekly 8
                           </button>
                           <button
                             type="button"
                             onClick={() => setHomeTab('creative')}
-                            className={`px-4 py-2 rounded-full text-base sm:text-lg md:text-2xl font-semibold transition-colors ${
+                            className={`px-3 py-1.5 rounded-full text-sm sm:px-4 sm:py-2 sm:text-lg md:text-2xl font-semibold transition-colors ${
                               homeTab === 'creative' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200 cursor-pointer'
-                            } whitespace-nowrap shrink-0`}
+                            } whitespace-nowrap text-center shrink-0`}
                           >
                             Creative Call
                           </button>
@@ -668,11 +681,11 @@ const App: React.FC = () => {
                     </div>
 
                     {homeTab === 'weekly' ? (
-                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4 ml-auto text-right">
+                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4 mx-auto text-center text-balance">
                         Explore fresh galleries curated by the Polaroid team.
                       </p>
                     ) : (
-                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4 ml-auto text-right">
+                      <p className="text-zinc-400 text-base md:text-lg font-medium max-w-2xl mt-4 mx-auto text-center text-balance">
                         Browse recent Creative Call submissions.
                       </p>
                     )}
