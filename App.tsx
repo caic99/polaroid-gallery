@@ -620,7 +620,7 @@ const App: React.FC = () => {
                             draggable={false}
                           />
                         ) : null}
-                        <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white leading-tight">
+                        <h1 className="text-4xl font-bold tracking-tight text-white leading-tight">
                           Polaroid App Selections
                         </h1>
                       </div>
