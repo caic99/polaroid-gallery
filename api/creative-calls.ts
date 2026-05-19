@@ -51,6 +51,13 @@ export default async (req: VercelRequest, res: VercelResponse) => {
       return res.status(400).json({ error: 'Invalid API response format' });
     }
 
+    // Keep the edge response fresh for an hour and serve stale for up to a
+    // day while revalidating in the background, so visitors never wait on
+    // the upstream CDN.
+    res.setHeader(
+      'Cache-Control',
+      'public, s-maxage=3600, stale-while-revalidate=86400'
+    );
     res.status(200).json(data);
   } catch (error) {
     console.error('Error fetching creative calls:', error);
