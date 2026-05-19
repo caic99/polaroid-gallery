@@ -142,6 +142,9 @@ const App: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const isTransitioning = useRef(false);
+  const scrollRafId = useRef<number | null>(null);
+  const themeColorTimer = useRef<number | null>(null);
+  const lastAppliedColor = useRef<string | null>(null);
 
   // Sync state from URL parameters
   const syncStateFromUrl = useCallback((items: ExhibitItem[]) => {
@@ -284,7 +287,14 @@ const App: React.FC = () => {
   }, [selectedExhibit]);
 
   const handleScroll = () => {
-    if (scrollContainerRef.current) {
+    // Coalesce scroll work to at most one update per frame. iOS Safari fires
+    // scroll events frequently during momentum, and the background-color writes
+    // below are too expensive to do on every event.
+    if (scrollRafId.current !== null) return;
+    scrollRafId.current = requestAnimationFrame(() => {
+      scrollRafId.current = null;
+      if (!scrollContainerRef.current) return;
+
       const { scrollLeft, clientWidth } = scrollContainerRef.current;
 
       // Discrete index for UI controls (dots, arrows)
@@ -318,23 +328,38 @@ const App: React.FC = () => {
 
         const newColor = interpolateColor(color1, color2, factor);
 
-        // Apply directly to DOM for instant feedback (bypassing React render cycle)
-        if (mainRef.current) {
-          // Only disable transition if we are not in the initial entry phase
-          if (!isTransitioning.current) {
-             mainRef.current.style.transition = 'none';
-          }
-          mainRef.current.style.backgroundColor = newColor;
-        }
-        if (!isTransitioning.current) {
-            document.body.style.transition = 'none';
-        }
-        document.body.style.backgroundColor = newColor;
+        if (newColor !== lastAppliedColor.current) {
+          lastAppliedColor.current = newColor;
 
-        const metaThemeColor = document.querySelector("meta[name='theme-color']");
-        if (metaThemeColor) metaThemeColor.setAttribute('content', newColor);
+          // Apply directly to DOM for instant feedback (bypassing React render cycle)
+          if (mainRef.current) {
+            // Only disable transition if we are not in the initial entry phase
+            if (!isTransitioning.current) {
+               mainRef.current.style.transition = 'none';
+            }
+            mainRef.current.style.backgroundColor = newColor;
+          }
+          if (!isTransitioning.current) {
+              document.body.style.transition = 'none';
+          }
+          document.body.style.backgroundColor = newColor;
+        }
+
+        // Defer the meta theme-color update until the user settles. Mutating
+        // this attribute repaints the iOS Safari URL bar, which is too
+        // expensive to do continuously during scrolling.
+        if (themeColorTimer.current !== null) {
+          clearTimeout(themeColorTimer.current);
+        }
+        themeColorTimer.current = window.setTimeout(() => {
+          themeColorTimer.current = null;
+          const metaThemeColor = document.querySelector("meta[name='theme-color']");
+          if (metaThemeColor && lastAppliedColor.current) {
+            metaThemeColor.setAttribute('content', lastAppliedColor.current);
+          }
+        }, 120);
       }
-    }
+    });
   };
 
   const scrollToIndex = (index: number) => {
@@ -418,6 +443,17 @@ const App: React.FC = () => {
   // Handle Home <-> Detail Transitions and Initial States
   useEffect(() => {
     if (!selectedExhibit) {
+      // Cancel any pending scroll work so it can't overwrite the home colors.
+      if (scrollRafId.current !== null) {
+        cancelAnimationFrame(scrollRafId.current);
+        scrollRafId.current = null;
+      }
+      if (themeColorTimer.current !== null) {
+        clearTimeout(themeColorTimer.current);
+        themeColorTimer.current = null;
+      }
+      lastAppliedColor.current = null;
+
       // Returning to Home: Clear manual styles so CSS classes/React props take over
       if (mainRef.current) {
         mainRef.current.style.transition = '';
