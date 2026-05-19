@@ -88,7 +88,7 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
            width={finalWidth}
            height={finalHeight}
            decoding="async"
-           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-700 linear ${showThumbnail ? 'opacity-100' : 'opacity-0'}`}
+           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60svh] md:max-h-[70svh] w-full h-full object-contain transition-opacity duration-700 linear ${showThumbnail ? 'opacity-100' : 'opacity-0'}`}
          />
 
          {/* High Res Image (Overlay) - Fades in when loaded */}
@@ -97,7 +97,7 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
              alt={item.title || "Gallery Item"}
              width={finalWidth}
              height={finalHeight}
-             className={`col-start-1 row-start-1 z-10 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-700 linear ${loaded ? 'opacity-100' : 'opacity-0'}`}
+             className={`col-start-1 row-start-1 z-10 max-w-[90vw] max-h-[60svh] md:max-h-[70svh] w-full h-full object-contain transition-opacity duration-700 linear ${loaded ? 'opacity-100' : 'opacity-0'}`}
              loading="lazy"
              decoding="async"
              draggable="false"
@@ -557,7 +557,7 @@ const App: React.FC = () => {
   return (
     <div
       ref={mainRef}
-      className="min-h-screen flex flex-col font-sans transition-colors duration-700 ease-out"
+      className="min-h-svh flex flex-col font-sans transition-colors duration-700 ease-out"
       style={{
         // Only use React state for background color when in Home view.
         // In Detail view, we let the ref/scroll logic handle the background to avoid fighting.
