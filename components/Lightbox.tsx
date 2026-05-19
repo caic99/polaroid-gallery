@@ -53,6 +53,7 @@ const Lightbox: React.FC<LightboxProps> = ({ item, onClose }) => {
         <img
           src={imageUrl}
           alt={item.title || 'Gallery image'}
+          decoding="async"
           className={`max-h-[85vh] max-w-full object-contain shadow-2xl transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setIsLoaded(true)}
         />

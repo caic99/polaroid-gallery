@@ -87,6 +87,7 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
            alt=""
            width={finalWidth}
            height={finalHeight}
+           decoding="async"
            className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-700 linear ${showThumbnail ? 'opacity-100' : 'opacity-0'}`}
          />
 
@@ -98,6 +99,7 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
              height={finalHeight}
              className={`col-start-1 row-start-1 z-10 max-w-[90vw] max-h-[60vh] md:max-h-[70vh] w-full h-full object-contain transition-opacity duration-700 linear ${loaded ? 'opacity-100' : 'opacity-0'}`}
              loading="lazy"
+             decoding="async"
              draggable="false"
              onLoad={() => setLoaded(true)}
          />
