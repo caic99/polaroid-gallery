@@ -1,19 +1,11 @@
-export const config = {
-  runtime: 'edge',
-  regions: ['hnd1'],
-};
+import { VercelRequest, VercelResponse } from '@vercel/node';
 
 const BASE_URL = "https://cdn.polaroid.com.cn/v2021-10-21/data/query/production";
 
-const jsonResponse = (body: unknown, status: number, extraHeaders: Record<string, string> = {}) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json', ...extraHeaders },
-  });
-
-export default async (req: Request) => {
+export default async (req: VercelRequest, res: VercelResponse) => {
+  // Only allow GET requests
   if (req.method !== 'GET') {
-    return jsonResponse({ error: 'Method not allowed' }, 405);
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
@@ -44,7 +36,9 @@ export default async (req: Request) => {
     }
   }`;
 
-    const targetUrl = `${BASE_URL}?query=${encodeURIComponent(query)}&perspective=published`;
+    const encodedQuery = encodeURIComponent(query);
+    const targetUrl = `${BASE_URL}?query=${encodedQuery}&perspective=published`;
+
     const response = await fetch(targetUrl);
 
     if (!response.ok) {
@@ -54,23 +48,22 @@ export default async (req: Request) => {
     const data = await response.json();
 
     if (!data || !data.result) {
-      return jsonResponse({ error: 'Invalid API response format' }, 400);
+      return res.status(400).json({ error: 'Invalid API response format' });
     }
 
     // Keep the edge response fresh for an hour and serve stale for up to a
     // day while revalidating in the background, so visitors never wait on
     // the upstream CDN.
-    return jsonResponse(data, 200, {
-      'cache-control': 'public, s-maxage=3600, stale-while-revalidate=86400',
-    });
+    res.setHeader(
+      'Cache-Control',
+      'public, s-maxage=3600, stale-while-revalidate=86400'
+    );
+    res.status(200).json(data);
   } catch (error) {
     console.error('Error fetching creative calls:', error);
-    return jsonResponse(
-      {
-        error: 'Failed to fetch creative calls',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      500,
-    );
+    res.status(500).json({
+      error: 'Failed to fetch creative calls',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
