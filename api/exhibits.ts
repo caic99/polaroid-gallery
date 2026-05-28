@@ -1,11 +1,19 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+export const config = {
+  runtime: 'edge',
+  regions: ['hnd1'],
+};
 
 const BASE_URL = "https://cdn.polaroid.com.cn/v2021-10-21/data/query/production";
 
-export default async (req: VercelRequest, res: VercelResponse) => {
-  // Only allow GET requests
+const jsonResponse = (body: unknown, status: number, extraHeaders: Record<string, string> = {}) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json', ...extraHeaders },
+  });
+
+export default async (req: Request) => {
   if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return jsonResponse({ error: 'Method not allowed' }, 405);
   }
 
   try {
@@ -40,9 +48,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     }
   }`;
 
-    const encodedQuery = encodeURIComponent(query);
-    const targetUrl = `${BASE_URL}?query=${encodedQuery}&perspective=published`;
-
+    const targetUrl = `${BASE_URL}?query=${encodeURIComponent(query)}&perspective=published`;
     const response = await fetch(targetUrl);
 
     if (!response.ok) {
@@ -52,22 +58,23 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     const data = await response.json();
 
     if (!data || !data.result) {
-      return res.status(400).json({ error: 'Invalid API response format' });
+      return jsonResponse({ error: 'Invalid API response format' }, 400);
     }
 
     // Keep the edge response fresh for an hour and serve stale for up to a
     // day while revalidating in the background, so visitors never wait on
     // the upstream CDN.
-    res.setHeader(
-      'Cache-Control',
-      'public, s-maxage=3600, stale-while-revalidate=86400'
-    );
-    res.status(200).json(data);
+    return jsonResponse(data, 200, {
+      'cache-control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+    });
   } catch (error) {
     console.error('Error fetching exhibits:', error);
-    res.status(500).json({
-      error: 'Failed to fetch exhibits',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+    return jsonResponse(
+      {
+        error: 'Failed to fetch exhibits',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500,
+    );
   }
 };
