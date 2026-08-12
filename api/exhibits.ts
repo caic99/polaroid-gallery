@@ -1,6 +1,11 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 
-const BASE_URL = "https://cdn.polaroid.com.cn/v2021-10-21/data/query/production";
+// Query Sanity's global API CDN directly instead of cdn.polaroid.com.cn.
+// The latter is CloudFront China, which resolves to edge IPs that are often
+// unreachable from Vercel's hnd1 region (TCP connect times out after 10s and
+// the function 500s). Both hosts front the same Sanity project (eqpwcnu7) and
+// return byte-identical results.
+const BASE_URL = "https://eqpwcnu7.apicdn.sanity.io/v2021-10-21/data/query/production";
 
 export default async (req: VercelRequest, res: VercelResponse) => {
   // Only allow GET requests

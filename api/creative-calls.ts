@@ -1,6 +1,11 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 
-const BASE_URL = "https://cdn.polaroid.com.cn/v2021-10-21/data/query/production";
+// Query Sanity's global API CDN directly instead of cdn.polaroid.com.cn.
+// The latter is CloudFront China, which resolves to edge IPs that are often
+// unreachable from Vercel's hnd1 region (TCP connect times out after 10s and
+// the function 500s). Both hosts front the same Sanity project (eqpwcnu7) and
+// return byte-identical results.
+const BASE_URL = "https://eqpwcnu7.apicdn.sanity.io/v2021-10-21/data/query/production";
 
 export default async (req: VercelRequest, res: VercelResponse) => {
   // Only allow GET requests
@@ -8,7 +13,6 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const startedAt = Date.now();
   try {
     const query = `*[_type=='submission'][dateTime(beginAt)<dateTime(now())] | order(beginAt desc) {
     "identifier": identifier["current"],
@@ -62,15 +66,9 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     res.status(200).json(data);
   } catch (error) {
     console.error('Error fetching creative calls:', error);
-    const cause = error instanceof Error ? (error.cause as Error & { code?: string } | undefined) : undefined;
     res.status(500).json({
       error: 'Failed to fetch creative calls',
-      details: error instanceof Error ? error.message : 'Unknown error',
-      errorName: error instanceof Error ? error.name : undefined,
-      causeName: cause?.name,
-      causeCode: cause?.code,
-      causeMessage: cause?.message,
-      elapsedMs: Date.now() - startedAt,
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };

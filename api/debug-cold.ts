@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 
-const BASE_URL = "https://cdn.polaroid.com.cn/v2021-10-21/data/query/production";
+const BASE_URL = "https://eqpwcnu7.apicdn.sanity.io/v2021-10-21/data/query/production";
 
 // Temporary diagnostic endpoint: replays the creative-calls query with unique
 // whitespace padding so CloudFront always treats it as a cache miss, and
