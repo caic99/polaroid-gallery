@@ -53,17 +53,18 @@ export default async (req: VercelRequest, res: VercelResponse) => {
       return res.status(400).json({ error: 'Invalid API response format' });
     }
 
-    // Browsers may cache for 5 minutes and serve stale for a day while
-    // revalidating in the background; the Vercel edge keeps its copy fresh
-    // for an hour with the same day-long stale window, so visitors almost
-    // never wait on Sanity's ~6 s query recompute.
+    // Deliberately ignore Sanity's own 60 s cache hint: the gallery changes
+    // at most a few times per week, so browsers may cache for an hour and
+    // the Vercel edge for a day, each serving stale for up to a week while
+    // revalidating in the background. Visitors almost never wait on Sanity's
+    // ~6 s query recompute.
     res.setHeader(
       'Cache-Control',
-      'public, max-age=300, stale-while-revalidate=86400'
+      'public, max-age=3600, stale-while-revalidate=604800'
     );
     res.setHeader(
       'Vercel-CDN-Cache-Control',
-      'public, s-maxage=3600, stale-while-revalidate=86400'
+      'public, s-maxage=86400, stale-while-revalidate=604800'
     );
     // Forward only the result: the upstream envelope also echoes the full
     // query text and sync tags, which no client reads.
