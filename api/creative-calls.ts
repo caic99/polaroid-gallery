@@ -8,6 +8,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const startedAt = Date.now();
   try {
     const query = `*[_type=='submission'][dateTime(beginAt)<dateTime(now())] | order(beginAt desc) {
     "identifier": identifier["current"],
@@ -61,9 +62,15 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     res.status(200).json(data);
   } catch (error) {
     console.error('Error fetching creative calls:', error);
+    const cause = error instanceof Error ? (error.cause as Error & { code?: string } | undefined) : undefined;
     res.status(500).json({
       error: 'Failed to fetch creative calls',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
+      errorName: error instanceof Error ? error.name : undefined,
+      causeName: cause?.name,
+      causeCode: cause?.code,
+      causeMessage: cause?.message,
+      elapsedMs: Date.now() - startedAt,
     });
   }
 };
