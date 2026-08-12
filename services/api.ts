@@ -41,15 +41,14 @@ export const fetchCreativeCalls = async (): Promise<ExhibitItem[]> => {
   }
 
   return (data.result || []).map((item) => {
-    const gallery = item.allApprovedSubmissionsGallery || item.submissionGallery;
     return {
       identifier: item.identifier,
       title: item.title,
       subtitle: item.subtitle,
       coverImages: item.heroImage ? [item.heroImage] : undefined,
       gallery: {
-        title: gallery?.title,
-        galleryItems: gallery?.galleryItems,
+        title: item.gallery?.title,
+        galleryItems: item.gallery?.galleryItems,
       },
     } satisfies ExhibitItem;
   });
