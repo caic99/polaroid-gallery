@@ -10,10 +10,11 @@ export default defineConfig({
   ],
   server: {
     proxy: {
+      // Proxy API calls to production so `npm run dev` works standalone,
+      // without a local `vercel dev` serving the functions.
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'https://polaroid.caic.ac.cn',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '/api'),
       },
     },
   },
