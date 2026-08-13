@@ -121,8 +121,10 @@ const ExhibitCard: React.FC<ExhibitCardProps> = React.memo(({ exhibit, onClick, 
       {/* Scrollable Row of Photos (limit visible width so thumbnails stay larger) */}
       <div className="w-full max-w-5xl ml-auto">
         <div
-          className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-6 px-6"
-          // onClick={(e) => e.stopPropagation()} // allow horizontal scroll without triggering card click
+          // No vertical padding of its own: the card's p-6 already frames the
+          // strip, keeping the top/bottom gaps symmetric where the rounded
+          // corners cut the scrolled images.
+          className="flex gap-2 overflow-x-auto scrollbar-hide -mx-6 px-6"
         >
           {displayImages.map((img, i) => {
           const asset = img.asset;
