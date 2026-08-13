@@ -210,8 +210,18 @@ const App: React.FC = () => {
   }, [syncStateFromUrl]);
 
   useEffect(() => {
+    // Fetch-on-mount (and on Retry): loadData flips the loading flag before
+    // awaiting, which is the point — not a cascading-render hazard.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
   }, [loadData]);
+
+  // True while the top history entry is a detail entry we pushed ourselves,
+  // so Back-to-home can pop it instead of pushing a third entry (which made
+  // the browser Back button reopen the exhibit the user just closed).
+  const pushedDetailEntry = useRef(false);
+  // Home scroll offset to restore when the detail view closes.
+  const homeScrollY = useRef(0);
 
   // Effect to handle PopState with fresh data
   useEffect(() => {
@@ -238,17 +248,14 @@ const App: React.FC = () => {
     }
   }, [selectedExhibit]); // Only on exhibit change/open. Scroll handle manages its own updates.
 
-  // True while the top history entry is a detail entry we pushed ourselves,
-  // so Back-to-home can pop it instead of pushing a third entry (which made
-  // the browser Back button reopen the exhibit the user just closed).
-  const pushedDetailEntry = useRef(false);
-  // Home scroll offset to restore when the detail view closes.
-  const homeScrollY = useRef(0);
-
   const handleExhibitClick = useCallback((exhibit: ExhibitItem, initialIndex: number = 0) => {
     homeScrollY.current = window.scrollY;
     setSelectedExhibit(exhibit);
     setCurrentIndex(initialIndex);
+    // Unpin the tab pill now so it isn't rendered pre-pinned for one frame
+    // when the user later returns home near the top of the page.
+    setTabsPinned(false);
+    setTabsPinnedStyle(null);
 
     // Push state for entering the exhibit
     const url = new URL(window.location.href);
@@ -450,7 +457,7 @@ const App: React.FC = () => {
   // DYNAMIC COLOR LOGIC
   // ---------------------------------------------------------------------------
 
-  let appBgColor = '#0e0e1a'; // Default Home Background
+  const appBgColor = '#0e0e1a'; // Default Home Background
   let appTextColor = '#f4f4f5'; // Default Home Text
 
   if (selectedExhibit) {
@@ -526,15 +533,7 @@ const App: React.FC = () => {
 
   // Keep the tab pill always visible in Home view.
   useEffect(() => {
-    if (selectedExhibit) {
-      // Reset so the pill isn't rendered pre-pinned for one frame when the
-      // user returns home near the top of the page.
-      if (tabsPinned) {
-        setTabsPinned(false);
-        setTabsPinnedStyle(null);
-      }
-      return;
-    }
+    if (selectedExhibit) return;
 
     const pinningEnabled = () => window.matchMedia('(min-width: 768px)').matches;
 
