@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ExhibitItem } from '../types';
 import { getOptimizedImageUrl } from '../services/api';
+import { ensureReadableText } from '../utils/color';
 
 interface ExhibitCardProps {
   exhibit: ExhibitItem;
@@ -31,7 +32,10 @@ const CardImage = ({ src, eager = false }: { src: string; eager?: boolean }) => 
   );
 };
 
-const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSubtitle = 'Weekly 8 Gallery', priority = false }) => {
+// Memoized: a tab-pin state flip in App re-renders the whole card list;
+// cards only need to re-render when their own props change (onClick is a
+// stable useCallback in App).
+const ExhibitCard: React.FC<ExhibitCardProps> = React.memo(({ exhibit, onClick, fallbackSubtitle = 'Weekly 8 Gallery', priority = false }) => {
   // Collect up to 8 images to display in the card preview
   const allImages = [];
 
@@ -58,7 +62,9 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSub
     return true;
   });
 
-  const displayImages = uniqueImages;
+  // Cap the strip: with 86 cards on the home page, unbounded strips add up
+  // to ~1000 <img> elements. The full gallery is one click away anyway.
+  const displayImages = uniqueImages.slice(0, 8);
 
   // Extract Palette Colors specifically from the Cover Image (Gallery Identity)
   const coverAsset = exhibit.coverImages?.[0]?.asset;
@@ -67,9 +73,9 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSub
   const paletteSource = coverAsset || displayImages[0]?.asset;
   const palette = paletteSource?.metadata?.palette;
 
-  // Use 'dominant' color as requested
+  // Use 'dominant' color as requested; guard against low-contrast pairs.
   const bgColor = palette?.dominant?.background || '#151520';
-  const txtColor = palette?.dominant?.foreground || '#ffffff';
+  const txtColor = ensureReadableText(palette?.dominant?.foreground || '#ffffff', bgColor);
 
   const handleCardClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -88,7 +94,9 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSub
           onClick(exhibit, 0);
         }
       }}
-      className="rounded-2xl p-6 cursor-pointer shadow-xl group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80"
+      // content-visibility skips layout/paint for offscreen cards (~86 on
+      // the home page); the intrinsic size keeps the scrollbar stable.
+      className="rounded-2xl p-6 cursor-pointer shadow-xl group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80 [content-visibility:auto] [contain-intrinsic-size:auto_480px]"
       style={{
         backgroundColor: bgColor,
         color: txtColor
@@ -149,6 +157,6 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSub
       </div>
     </div>
   );
-};
+});
 
 export default ExhibitCard;

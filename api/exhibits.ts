@@ -22,7 +22,7 @@ const QUERY = `*[_type == 'exhibits']{
         title,
         galleryItems[]{
           title,
-          "desc": desc[0].children[0].text,
+          "desc": pt::text(desc),
           image{asset->{url,assetId,metadata{dimensions{width,height},palette{dominant{background,foreground}}}}}
         }
       }

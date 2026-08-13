@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { fetchCreativeCalls, fetchExhibits, getOptimizedImageUrl } from './services/api';
 import { ExhibitItem, GalleryItem, PortableTextBlock } from './types';
+import { ensureReadableText } from './utils/color';
 import ExhibitCard from './components/ExhibitCard';
 import { Loader2, AlertTriangle, ChevronLeft } from './components/Icons';
 
@@ -88,16 +89,17 @@ const GallerySlide = ({ item }: { item: GalleryItem }) => {
            width={finalWidth}
            height={finalHeight}
            decoding="async"
-           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60svh] md:max-h-[70svh] w-full h-full object-contain transition-opacity duration-700 linear ${showThumbnail ? 'opacity-100' : 'opacity-0'}`}
+           loading="lazy"
+           className={`col-start-1 row-start-1 max-w-[90vw] max-h-[60svh] md:max-h-[70svh] w-full h-full object-contain transition-opacity duration-700 ease-linear ${showThumbnail ? 'opacity-100' : 'opacity-0'}`}
          />
 
          {/* High Res Image (Overlay) - Fades in when loaded */}
          <img
              src={highResUrl}
-             alt={item.title || "Gallery Item"}
+             alt={item.title || ''}
              width={finalWidth}
              height={finalHeight}
-             className={`col-start-1 row-start-1 z-10 max-w-[90vw] max-h-[60svh] md:max-h-[70svh] w-full h-full object-contain transition-opacity duration-700 linear ${loaded ? 'opacity-100' : 'opacity-0'}`}
+             className={`col-start-1 row-start-1 z-10 max-w-[90vw] max-h-[60svh] md:max-h-[70svh] w-full h-full object-contain transition-opacity duration-700 ease-linear ${loaded ? 'opacity-100' : 'opacity-0'}`}
              loading="lazy"
              decoding="async"
              draggable="false"
@@ -156,17 +158,13 @@ const App: React.FC = () => {
       const foundExhibit = items.find(e => e.identifier === exhibitId);
       if (foundExhibit) {
         setSelectedExhibit(foundExhibit);
-        if (slideIndex) {
-          const idx = parseInt(slideIndex, 10);
-          if (!isNaN(idx) && idx >= 0) {
-            setCurrentIndex(idx);
-            // We need to wait for render to scroll, handled in useEffect
-          } else {
-            setCurrentIndex(0);
-          }
-        } else {
-          setCurrentIndex(0);
-        }
+        // Clamp to the gallery bounds: a stale or hand-edited ?slide= must
+        // not leave currentIndex pointing past the last slide (small
+        // galleries never emit the corrective scroll event).
+        const maxIdx = (foundExhibit.gallery?.galleryItems?.filter(i => i.image?.asset).length || 1) - 1;
+        const idx = slideIndex ? parseInt(slideIndex, 10) : 0;
+        setCurrentIndex(!isNaN(idx) ? Math.max(0, Math.min(idx, maxIdx)) : 0);
+        // We need to wait for render to scroll, handled in useEffect
       }
     } else {
       setSelectedExhibit(null);
@@ -174,58 +172,52 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setCreativeCallsError(null);
+
+    // The two tabs load independently: the page unblocks as soon as the
+    // default (Weekly 8) data arrives, and a failure in one tab no longer
+    // blanks the other.
+    const weeklyPromise = fetchExhibits()
+      .then((items) => {
+        setExhibits(items);
+        return items;
+      })
+      .catch(() => {
+        setError('Unable to retrieve gallery data.');
+        return [] as ExhibitItem[];
+      });
+
+    const creativePromise = fetchCreativeCalls()
+      .then((items) => {
+        setCreativeCalls(items);
+        return items;
+      })
+      .catch(() => {
+        setCreativeCalls([]);
+        setCreativeCallsError('Unable to retrieve Creative Call data.');
+        return [] as ExhibitItem[];
+      });
+
+    const weeklyItems = await weeklyPromise;
+    setLoading(false);
+
+    // Deep links may point at either tab, so resolve them once both settle.
+    const creativeItems = await creativePromise;
+    syncStateFromUrl([...weeklyItems, ...creativeItems]);
+  }, [syncStateFromUrl]);
+
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
-      setCreativeCallsError(null);
-      try {
-        const [weeklyResult, creativeResult] = await Promise.allSettled([
-          fetchExhibits(),
-          fetchCreativeCalls(),
-        ]);
-
-        if (weeklyResult.status === 'fulfilled') {
-          setExhibits(weeklyResult.value);
-        } else {
-          setError('Unable to retrieve gallery data.');
-        }
-
-        if (creativeResult.status === 'fulfilled') {
-          setCreativeCalls(creativeResult.value);
-        } else {
-          setCreativeCalls([]);
-          setCreativeCallsError('Unable to retrieve Creative Call data.');
-        }
-
-        const weeklyItems = weeklyResult.status === 'fulfilled' ? weeklyResult.value : [];
-        const creativeItems = creativeResult.status === 'fulfilled' ? creativeResult.value : [];
-        syncStateFromUrl([...weeklyItems, ...creativeItems]);
-      } catch (err) {
-        setError("Unable to retrieve gallery data.");
-      } finally {
-        setLoading(false);
-      }
-    };
     loadData();
-
-    const handlePopState = () => {
-      // Re-sync when browser back/forward is pressed
-      // We need the exhibits data which we might not have access to in this closure easily
-      // if we don't use a ref or dependency.
-      // Ideally, we'd trigger a re-sync.
-      // Since exhibits state is stable after load, we can depend on it?
-      // Actually, React state in event listener might be stale.
-      // Use URLSearchParams directly in a way that depends on `exhibits`.
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []); // Run once on mount
+  }, [loadData]);
 
   // Effect to handle PopState with fresh data
   useEffect(() => {
     const handlePopState = () => {
+      // Whatever entry we land on, our own pushed detail entry is gone.
+      pushedDetailEntry.current = false;
       const allItems = [...exhibits, ...creativeCalls];
       if (allItems.length > 0) {
         syncStateFromUrl(allItems);
@@ -246,7 +238,15 @@ const App: React.FC = () => {
     }
   }, [selectedExhibit]); // Only on exhibit change/open. Scroll handle manages its own updates.
 
-  const handleExhibitClick = (exhibit: ExhibitItem, initialIndex: number = 0) => {
+  // True while the top history entry is a detail entry we pushed ourselves,
+  // so Back-to-home can pop it instead of pushing a third entry (which made
+  // the browser Back button reopen the exhibit the user just closed).
+  const pushedDetailEntry = useRef(false);
+  // Home scroll offset to restore when the detail view closes.
+  const homeScrollY = useRef(0);
+
+  const handleExhibitClick = useCallback((exhibit: ExhibitItem, initialIndex: number = 0) => {
+    homeScrollY.current = window.scrollY;
     setSelectedExhibit(exhibit);
     setCurrentIndex(initialIndex);
 
@@ -255,6 +255,7 @@ const App: React.FC = () => {
     url.searchParams.set('exhibit', exhibit.identifier);
     url.searchParams.set('slide', initialIndex.toString());
     window.history.pushState({}, '', url.toString());
+    pushedDetailEntry.current = true;
 
     window.scrollTo({ top: 0, behavior: 'instant' });
 
@@ -267,14 +268,33 @@ const App: React.FC = () => {
             });
         }
     }, 0);
-  };
+  }, []);
 
   const handleBack = () => {
+    if (pushedDetailEntry.current) {
+      // We pushed the detail entry, so going back pops it: the popstate
+      // handler closes the view and browser Back keeps working naturally.
+      window.history.back();
+      return;
+    }
+    // Deep link landing: there is no home entry behind us to pop.
     setSelectedExhibit(null);
     setCurrentIndex(0);
-    // Push state for returning home
     window.history.pushState({}, '', window.location.pathname);
   };
+
+  // Restore the home scroll offset once the home view is back in the DOM,
+  // and move focus into the detail view when it opens so keyboard users
+  // land where the arrow keys and Escape act.
+  const detailRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selectedExhibit) {
+      detailRef.current?.focus({ preventScroll: true });
+    } else if (homeScrollY.current > 0) {
+      window.scrollTo({ top: homeScrollY.current, behavior: 'instant' });
+      homeScrollY.current = 0;
+    }
+  }, [selectedExhibit]);
 
   // Pre-calculate colors for the current gallery
   const galleryColors = React.useMemo(() => {
@@ -372,9 +392,15 @@ const App: React.FC = () => {
     }
   };
 
+  // Filter valid items for the gallery view. Memoized so effects keyed on it
+  // (document title) only re-run when the exhibit actually changes.
+  const galleryItems = React.useMemo(
+    () => selectedExhibit?.gallery?.galleryItems?.filter(i => i.image?.asset) || [],
+    [selectedExhibit]
+  );
+
   const nextSlide = () => {
-    const items = selectedExhibit?.gallery?.galleryItems?.filter(i => i.image?.asset) || [];
-    if (currentIndex < items.length - 1) {
+    if (currentIndex < galleryItems.length - 1) {
       scrollToIndex(currentIndex + 1);
     }
   };
@@ -384,9 +410,6 @@ const App: React.FC = () => {
       scrollToIndex(currentIndex - 1);
     }
   };
-
-  // Filter valid items for the gallery view
-  const galleryItems = selectedExhibit?.gallery?.galleryItems?.filter(i => i.image?.asset) || [];
 
   // Keyboard Navigation
   useEffect(() => {
@@ -439,7 +462,10 @@ const App: React.FC = () => {
     const displayPalette = currentPalette || fallbackPalette;
 
     // Note: Background color is handled by handleScroll when in detail view
-    appTextColor = displayPalette?.dominant?.foreground || '#ffffff';
+    const rawTextColor = displayPalette?.dominant?.foreground || '#ffffff';
+    const currentBg = galleryColors[currentIndex] || galleryColors[0] || '#2c2435';
+    // Some Sanity palettes pair low-contrast fg/bg; guard readability.
+    appTextColor = ensureReadableText(rawTextColor, currentBg);
   }
 
   // Handle Home <-> Detail Transitions and Initial States
@@ -456,10 +482,12 @@ const App: React.FC = () => {
       }
       lastAppliedColor.current = null;
 
-      // Returning to Home: Clear manual styles so CSS classes/React props take over
+      // Returning to Home: restore the value React's JSX also renders, so the
+      // real DOM stays in sync with React's model of the inline style
+      // (clearing it would leave React believing the color is still set).
       if (mainRef.current) {
         mainRef.current.style.transition = '';
-        mainRef.current.style.backgroundColor = '';
+        mainRef.current.style.backgroundColor = appBgColor;
       }
       document.body.style.transition = '';
       document.body.style.backgroundColor = appBgColor;
@@ -498,7 +526,15 @@ const App: React.FC = () => {
 
   // Keep the tab pill always visible in Home view.
   useEffect(() => {
-    if (selectedExhibit) return;
+    if (selectedExhibit) {
+      // Reset so the pill isn't rendered pre-pinned for one frame when the
+      // user returns home near the top of the page.
+      if (tabsPinned) {
+        setTabsPinned(false);
+        setTabsPinnedStyle(null);
+      }
+      return;
+    }
 
     const pinningEnabled = () => window.matchMedia('(min-width: 768px)').matches;
 
@@ -571,26 +607,22 @@ const App: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-grow flex flex-col relative">
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-[60vh] text-zinc-500 gap-4">
+          <div
+            role="status"
+            aria-label="Loading galleries"
+            className="flex flex-col items-center justify-center h-[60vh] text-zinc-500 gap-4"
+          >
             <Loader2 className="w-8 h-8 text-white animate-spin" />
-          </div>
-        ) : error ? (
-           <div className="flex flex-col items-center justify-center h-[50vh] text-center px-6">
-            <AlertTriangle className="w-8 h-8 text-polaroid-red mb-4" />
-            <p className="text-zinc-400 mb-6">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-2 bg-zinc-800 text-white rounded-full text-sm font-medium"
-            >
-              Retry
-            </button>
           </div>
         ) : (
           <>
             {selectedExhibit ? (
               // DETAIL VIEW: Horizontal Gallery
               <div
-                className="flex-1 relative flex flex-col cursor-zoom-out"
+                ref={detailRef}
+                tabIndex={-1}
+                aria-label={`${selectedExhibit.title} gallery. Press Escape to close.`}
+                className="flex-1 relative flex flex-col cursor-zoom-out outline-none"
                 onClick={handleBack}
               >
 
@@ -602,7 +634,12 @@ const App: React.FC = () => {
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
                     {galleryItems.map((item, idx) => (
-                        <div key={idx} className="min-w-full w-full h-full snap-center flex flex-col items-center justify-center p-4 md:p-8 relative">
+                        <div
+                          // Keyed by asset so slide load-state never carries
+                          // over when jumping between exhibits via history.
+                          key={item.image?.asset?.assetId ?? item.image?.asset?.url ?? idx}
+                          className="min-w-full w-full h-full snap-center flex flex-col items-center justify-center p-4 md:p-8 relative"
+                        >
                            <GallerySlide item={item} />
                         </div>
                     ))}
@@ -632,12 +669,18 @@ const App: React.FC = () => {
                           e.stopPropagation();
                           scrollToIndex(idx);
                         }}
-                        className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                          idx === currentIndex ? 'scale-125' : 'opacity-40 hover:opacity-60'
-                        }`}
-                        style={{ backgroundColor: 'currentColor' }}
+                        // 24px hit target around the 8px visual dot.
+                        className="w-6 h-6 -m-2 flex items-center justify-center"
                         aria-label={`Go to slide ${idx + 1}`}
-                      />
+                        aria-current={idx === currentIndex}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                            idx === currentIndex ? 'scale-125' : 'opacity-40 hover:opacity-60'
+                          }`}
+                          style={{ backgroundColor: 'currentColor' }}
+                        />
+                      </button>
                     ))}
                   </div>
 
@@ -689,6 +732,8 @@ const App: React.FC = () => {
                         ) : null}
                         <div
                           ref={tabsPillRef}
+                          role="tablist"
+                          aria-label="Gallery collections"
                           className={`inline-flex flex-row flex-nowrap items-center justify-center gap-2 rounded-full bg-white/5 backdrop-blur-lg p-1 max-w-full w-fit ${
                             tabsPinned ? 'fixed top-2 z-50' : ''
                           }`}
@@ -700,6 +745,8 @@ const App: React.FC = () => {
                         >
                           <button
                             type="button"
+                            role="tab"
+                            aria-selected={homeTab === 'weekly'}
                             onClick={() => setHomeTab('weekly')}
                             className={`px-3 py-1.5 rounded-full text-sm sm:px-4 sm:py-2 sm:text-lg md:text-2xl font-semibold transition-colors ${
                               homeTab === 'weekly' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200 cursor-pointer'
@@ -709,6 +756,8 @@ const App: React.FC = () => {
                           </button>
                           <button
                             type="button"
+                            role="tab"
+                            aria-selected={homeTab === 'creative'}
                             onClick={() => setHomeTab('creative')}
                             className={`px-3 py-1.5 rounded-full text-sm sm:px-4 sm:py-2 sm:text-lg md:text-2xl font-semibold transition-colors ${
                               homeTab === 'creative' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200 cursor-pointer'
@@ -733,19 +782,49 @@ const App: React.FC = () => {
 
                   <div className="mt-8 md:mt-10">
                     {homeTab === 'weekly' ? (
-                      <div className="flex flex-col gap-6">
-                        {exhibits.map((exhibit, i) => (
-                          <ExhibitCard
-                            key={exhibit.identifier}
-                            exhibit={exhibit}
-                            onClick={handleExhibitClick}
-                            fallbackSubtitle="Weekly 8 Gallery"
-                            priority={i === 0}
-                          />
-                        ))}
-                      </div>
+                      error ? (
+                        <div className="flex flex-col items-start gap-4">
+                          <p className="text-zinc-400 flex items-center gap-2">
+                            <AlertTriangle className="w-5 h-5 text-polaroid-red" />
+                            {error}
+                          </p>
+                          <button
+                            onClick={() => loadData()}
+                            className="px-6 py-2 bg-zinc-800 text-white rounded-full text-sm font-medium"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      ) : exhibits.length === 0 ? (
+                        <p className="text-zinc-500 text-sm md:text-base">No galleries published yet — check back soon.</p>
+                      ) : (
+                        <div className="flex flex-col gap-6">
+                          {exhibits.map((exhibit, i) => (
+                            <ExhibitCard
+                              key={exhibit.identifier}
+                              exhibit={exhibit}
+                              onClick={handleExhibitClick}
+                              fallbackSubtitle="Weekly 8 Gallery"
+                              priority={i === 0}
+                            />
+                          ))}
+                        </div>
+                      )
                     ) : creativeCallsError ? (
-                      <p className="text-zinc-500 text-sm md:text-base">{creativeCallsError}</p>
+                      <div className="flex flex-col items-start gap-4">
+                        <p className="text-zinc-400 flex items-center gap-2">
+                          <AlertTriangle className="w-5 h-5 text-polaroid-red" />
+                          {creativeCallsError}
+                        </p>
+                        <button
+                          onClick={() => loadData()}
+                          className="px-6 py-2 bg-zinc-800 text-white rounded-full text-sm font-medium"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    ) : creativeCalls.length === 0 ? (
+                      <p className="text-zinc-500 text-sm md:text-base">No Creative Call submissions yet — check back soon.</p>
                     ) : (
                       <div className="flex flex-col gap-6">
                         {creativeCalls.map((call, i) => (
