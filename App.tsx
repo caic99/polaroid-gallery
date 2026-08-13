@@ -605,17 +605,7 @@ const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-grow flex flex-col relative">
-        {loading ? (
-          <div
-            role="status"
-            aria-label="Loading galleries"
-            className="flex flex-col items-center justify-center h-[60vh] text-zinc-500 gap-4"
-          >
-            <Loader2 className="w-8 h-8 text-white animate-spin" />
-          </div>
-        ) : (
-          <>
-            {selectedExhibit ? (
+        {selectedExhibit ? (
               // DETAIL VIEW: Horizontal Gallery
               <div
                 ref={detailRef}
@@ -780,7 +770,17 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="mt-8 md:mt-10">
-                    {homeTab === 'weekly' ? (
+                    {loading ? (
+                      // The headline, tab pill, and tagline stay visible while
+                      // the gallery data loads; only the card area waits.
+                      <div
+                        role="status"
+                        aria-label="Loading galleries"
+                        className="flex flex-col items-center justify-center min-h-[40vh] text-zinc-500 gap-4"
+                      >
+                        <Loader2 className="w-8 h-8 text-white animate-spin" />
+                      </div>
+                    ) : homeTab === 'weekly' ? (
                       error ? (
                         <div className="flex flex-col items-start gap-4">
                           <p className="text-zinc-400 flex items-center gap-2">
@@ -840,8 +840,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
               </div>
-            )}
-          </>
         )}
       </main>
     </div>
