@@ -6,9 +6,11 @@ interface ExhibitCardProps {
   exhibit: ExhibitItem;
   onClick: (exhibit: ExhibitItem, initialIndex?: number) => void;
   fallbackSubtitle?: string;
+  /** First visible card: load its images eagerly at high priority (LCP). */
+  priority?: boolean;
 }
 
-const CardImage = ({ src }: { src: string }) => {
+const CardImage = ({ src, eager = false }: { src: string; eager?: boolean }) => {
   const [loaded, setLoaded] = useState(false);
 
   return (
@@ -18,7 +20,10 @@ const CardImage = ({ src }: { src: string }) => {
         src={src}
         alt=""
         decoding="async"
-        loading="lazy"
+        loading={eager ? 'eager' : 'lazy'}
+        // React 18 has no fetchPriority prop; the lowercase form passes
+        // through as a plain attribute without warnings.
+        {...(eager ? ({ fetchpriority: 'high' } as React.ImgHTMLAttributes<HTMLImageElement>) : {})}
         className={`w-full h-full object-cover transition-opacity duration-2000 cursor-zoom-in ${loaded ? '' : 'opacity-0 contrast-200'}`}
         onLoad={() => setLoaded(true)}
       />
@@ -26,7 +31,7 @@ const CardImage = ({ src }: { src: string }) => {
   );
 };
 
-const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSubtitle = 'Weekly 8 Gallery' }) => {
+const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSubtitle = 'Weekly 8 Gallery', priority = false }) => {
   // Collect up to 8 images to display in the card preview
   const allImages = [];
 
@@ -74,7 +79,16 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSub
   return (
     <div
       onClick={handleCardClick}
-      className="rounded-2xl p-6 cursor-pointer shadow-xl group"
+      role="button"
+      tabIndex={0}
+      aria-label={`Open gallery: ${exhibit.title}`}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick(exhibit, 0);
+        }
+      }}
+      className="rounded-2xl p-6 cursor-pointer shadow-xl group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80"
       style={{
         backgroundColor: bgColor,
         color: txtColor
@@ -127,7 +141,7 @@ const ExhibitCard: React.FC<ExhibitCardProps> = ({ exhibit, onClick, fallbackSub
               }}
               className="flex-shrink-0 w-28 md:w-36 lg:w-44 hover:opacity-80 transition-opacity cursor-zoom-in"
             >
-              <CardImage src={url} />
+              <CardImage src={url} eager={priority && i < 4} />
             </div>
           );
           })}

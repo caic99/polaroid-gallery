@@ -398,6 +398,8 @@ const App: React.FC = () => {
         prevSlide();
       } else if (e.key === 'ArrowRight') {
         nextSlide();
+      } else if (e.key === 'Escape') {
+        handleBack();
       }
     };
 
@@ -732,12 +734,13 @@ const App: React.FC = () => {
                   <div className="mt-8 md:mt-10">
                     {homeTab === 'weekly' ? (
                       <div className="flex flex-col gap-6">
-                        {exhibits.map((exhibit) => (
+                        {exhibits.map((exhibit, i) => (
                           <ExhibitCard
                             key={exhibit.identifier}
                             exhibit={exhibit}
                             onClick={handleExhibitClick}
                             fallbackSubtitle="Weekly 8 Gallery"
+                            priority={i === 0}
                           />
                         ))}
                       </div>
@@ -745,12 +748,13 @@ const App: React.FC = () => {
                       <p className="text-zinc-500 text-sm md:text-base">{creativeCallsError}</p>
                     ) : (
                       <div className="flex flex-col gap-6">
-                        {creativeCalls.map((call) => (
+                        {creativeCalls.map((call, i) => (
                           <ExhibitCard
                             key={call.identifier}
                             exhibit={call}
                             onClick={handleExhibitClick}
                             fallbackSubtitle="Creative Call"
+                            priority={i === 0}
                           />
                         ))}
                       </div>

@@ -1,4 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
+import { getCache, waitUntil } from '@vercel/functions';
 
 // Query Sanity's global API CDN directly instead of cdn.polaroid.com.cn.
 // The latter is CloudFront China, which resolves to edge IPs that are often
@@ -7,21 +8,14 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 // return byte-identical results.
 const BASE_URL = "https://eqpwcnu7.apicdn.sanity.io/v2021-10-21/data/query/production";
 
-export default async (req: VercelRequest, res: VercelResponse) => {
-  // Only allow GET requests
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    // Projections are trimmed to exactly what the frontend reads: one gallery
-    // per submission (the client used allApprovedSubmissionsGallery ||
-    // submissionGallery, mirrored here with coalesce), asset url/assetId,
-    // gallery-item dimensions, and only the dominant palette swatch. This
-    // cuts the payload from ~695 KB to ~134 KB and shaves Sanity's own query
-    // time from ~7.3 s to ~5.9 s on a CDN cache miss. moderatedAt must stay
-    // in the projection because order() runs on the projected items.
-    const query = `*[_type=='submission' && dateTime(beginAt) < dateTime(now())] | order(beginAt desc) {
+// Projections are trimmed to exactly what the frontend reads: one gallery
+// per submission (the client used allApprovedSubmissionsGallery ||
+// submissionGallery, mirrored here with coalesce), asset url/assetId,
+// gallery-item dimensions, and only the dominant palette swatch. This
+// cuts the payload from ~695 KB to ~134 KB and shaves Sanity's own query
+// time from ~7.3 s to ~5.9 s on a CDN cache miss. moderatedAt must stay
+// in the projection because order() runs on the projected items.
+const QUERY = `*[_type=='submission' && dateTime(beginAt) < dateTime(now())] | order(beginAt desc) {
     "identifier": identifier["current"],
     title,
     subtitle,
@@ -38,40 +32,91 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     )
   }`;
 
-    const encodedQuery = encodeURIComponent(query);
-    const targetUrl = `${BASE_URL}?query=${encodedQuery}&perspective=published`;
+// The Runtime Cache survives deployments (the CDN cache does not), so after
+// a deploy the first visitor gets last cached data instantly instead of
+// waiting ~6 s for Sanity to recompute the query. Entries older than
+// FRESH_MS are served immediately and refreshed in the background.
+const CACHE_KEY = 'creative-calls-v1';
+const FRESH_MS = 60 * 60 * 1000;
+const CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
 
-    const response = await fetch(targetUrl);
+interface CacheEntry {
+  result: unknown;
+  fetchedAt: number;
+}
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+async function fetchUpstream(): Promise<unknown> {
+  const targetUrl = `${BASE_URL}?query=${encodeURIComponent(QUERY)}&perspective=published`;
+  let lastError: unknown;
+  // One retry: Sanity's cold recompute occasionally races its own CDN.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch(targetUrl, { signal: AbortSignal.timeout(20000) });
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      const data = await response.json();
+      if (!data || !data.result) {
+        throw new Error('Invalid API response format');
+      }
+      return data.result;
+    } catch (error) {
+      lastError = error;
     }
+  }
+  throw lastError;
+}
 
-    const data = await response.json();
+async function refreshCache(): Promise<void> {
+  try {
+    const result = await fetchUpstream();
+    await getCache().set(CACHE_KEY, { result, fetchedAt: Date.now() }, { ttl: CACHE_TTL_SECONDS });
+  } catch (error) {
+    console.error('Background refresh of creative calls failed:', error);
+  }
+}
 
-    if (!data || !data.result) {
-      return res.status(400).json({ error: 'Invalid API response format' });
+function setCacheHeaders(res: VercelResponse) {
+  // Deliberately ignore Sanity's own 60 s cache hint: the gallery changes
+  // at most a few times per week, so browsers may cache for an hour and
+  // the Vercel edge for a day, each serving stale for up to a week while
+  // revalidating in the background (or on upstream errors).
+  res.setHeader(
+    'Cache-Control',
+    'public, max-age=3600, stale-while-revalidate=604800, stale-if-error=604800'
+  );
+  res.setHeader(
+    'Vercel-CDN-Cache-Control',
+    'public, s-maxage=86400, stale-while-revalidate=604800, stale-if-error=604800'
+  );
+}
+
+export default async (req: VercelRequest, res: VercelResponse) => {
+  // Only allow GET requests
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const entry = (await getCache().get(CACHE_KEY)) as CacheEntry | null;
+  if (entry && entry.result) {
+    if (Date.now() - entry.fetchedAt > FRESH_MS) {
+      waitUntil(refreshCache());
     }
-
-    // Deliberately ignore Sanity's own 60 s cache hint: the gallery changes
-    // at most a few times per week, so browsers may cache for an hour and
-    // the Vercel edge for a day, each serving stale for up to a week while
-    // revalidating in the background. Visitors almost never wait on Sanity's
-    // ~6 s query recompute.
-    res.setHeader(
-      'Cache-Control',
-      'public, max-age=3600, stale-while-revalidate=604800'
-    );
-    res.setHeader(
-      'Vercel-CDN-Cache-Control',
-      'public, s-maxage=86400, stale-while-revalidate=604800'
-    );
+    setCacheHeaders(res);
     // Forward only the result: the upstream envelope also echoes the full
     // query text and sync tags, which no client reads.
-    res.status(200).json({ result: data.result });
+    return res.status(200).json({ result: entry.result });
+  }
+
+  try {
+    const result = await fetchUpstream();
+    await getCache().set(CACHE_KEY, { result, fetchedAt: Date.now() }, { ttl: CACHE_TTL_SECONDS });
+    setCacheHeaders(res);
+    return res.status(200).json({ result });
   } catch (error) {
     console.error('Error fetching creative calls:', error);
-    res.status(500).json({
+    // 502: the upstream failed us; never cached by the CDN.
+    return res.status(502).json({
       error: 'Failed to fetch creative calls',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
