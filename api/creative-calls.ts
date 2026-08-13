@@ -36,7 +36,9 @@ const QUERY = `*[_type=='submission' && dateTime(beginAt) < dateTime(now())] | o
 // a deploy the first visitor gets last cached data instantly instead of
 // waiting ~6 s for Sanity to recompute the query. Entries older than
 // FRESH_MS are served immediately and refreshed in the background.
-const CACHE_KEY = 'creative-calls-v1';
+// Key the cache by the query text so editing the GROQ projection
+// automatically invalidates previously cached results.
+const CACHE_KEY = 'creative-calls-' + Array.from(QUERY).reduce((h, c) => (h * 33 + c.charCodeAt(0)) >>> 0, 5381).toString(36);
 const FRESH_MS = 60 * 60 * 1000;
 const CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
 
